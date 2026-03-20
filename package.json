@@ -1,5 +1,5 @@
 {
-  "name": "figma-slides-mcp",
+  "name": "@guiqft/figma-slides-mcp",
   "version": "1.0.0",
   "description": "MCP server that bridges Claude Code and Figma Slides via a Figma plugin",
   "type": "module",
@@ -26,9 +26,9 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/Strand-AI/figma-slides-mcp.git"
+    "url": "https://github.com/guiqft/figma-slides-mcp.git"
   },
-  "homepage": "https://github.com/Strand-AI/figma-slides-mcp",
+  "homepage": "https://github.com/guiqft/figma-slides-mcp",
   "devDependencies": {
     "@figma/plugin-typings": "^1.106.0",
     "@modelcontextprotocol/sdk": "^1.12.1",
