@@ -1,6 +1,6 @@
 {
   "name": "@guiqft/figma-slides-mcp",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "MCP server that bridges Claude Code and Figma Slides via a Figma plugin",
   "type": "module",
   "bin": {
