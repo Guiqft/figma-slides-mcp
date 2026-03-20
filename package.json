@@ -26,9 +26,9 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/guiqft/figma-slides-mcp.git"
+    "url": "git+https://github.com/Guiqft/figma-slides-mcp.git"
   },
-  "homepage": "https://github.com/guiqft/figma-slides-mcp",
+  "homepage": "https://github.com/Guiqft/figma-slides-mcp",
   "devDependencies": {
     "@figma/plugin-typings": "^1.106.0",
     "@modelcontextprotocol/sdk": "^1.12.1",
