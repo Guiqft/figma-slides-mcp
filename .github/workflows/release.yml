@@ -16,6 +16,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          registry-url: https://registry.npmjs.org
 
       - run: npm ci
 
@@ -23,6 +24,10 @@ jobs:
 
       - name: Zip Figma plugin
         run: cd mcp/dist/figma-plugin && zip -r ../../../figma-plugin.zip .
+
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - uses: softprops/action-gh-release@v2
         with:
