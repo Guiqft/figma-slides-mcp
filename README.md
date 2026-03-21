@@ -9,7 +9,7 @@
 ## How It Works
 
 ```
-AI Assistant  <-MCP->  MCP Server  <-WebSocket :3055->  Figma Plugin  <-Plugin API->  Figma Slides
+AI Assistant  ←MCP→  MCP Server  ←WebSocket :3055→  Figma Plugin  ←Plugin API→  Figma Slides
 ```
 
 The MCP server communicates with a Figma plugin running inside your Figma Slides file. The plugin executes JavaScript in the Figma plugin sandbox and returns results.
@@ -19,7 +19,7 @@ The MCP server communicates with a Figma plugin running inside your Figma Slides
 - Node.js 18+
 - A Figma account with access to Figma Slides
 
-## Quick Start
+## Setup
 
 ### 1. Connect to your MCP client
 
@@ -113,8 +113,6 @@ Run JavaScript in the Figma plugin sandbox. Has access to the full [`figma` Plug
 Export a slide as PNG and return it as a base64 image.
 
 ## Development
-
-For contributors who want to work on the project:
 
 ```bash
 git clone https://github.com/Strand-AI/figma-slides-mcp.git

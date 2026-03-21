@@ -8,7 +8,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const watch = process.argv.includes("--watch");
 
 // Bundle the MCP server (Node, stdio)
-// Bundle npm packages but keep Node.js builtins external
 const serverBuild = {
   entryPoints: [path.join(__dirname, "src/mcp-server.ts")],
   bundle: true,
