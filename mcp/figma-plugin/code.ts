@@ -67,6 +67,11 @@ const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 async function handleCommand(cmd: string, params: Record<string, unknown>): Promise<CommandResult> {
   try {
     switch (cmd) {
+      case "ping": {
+        const slides = findSlides();
+        return { success: true, data: { pong: true, slideCount: slides.length, timestamp: Date.now() } };
+      }
+
       case "execute": {
         const code = params.code as string;
         if (!code) return { success: false, error: "No code provided" };

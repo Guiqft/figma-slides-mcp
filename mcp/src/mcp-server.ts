@@ -201,7 +201,7 @@ function connectAsProxy(): Promise<void> {
 
 // ── sendToPlugin (works in both modes) ───────────────────
 
-function sendToPlugin(command: string, params: Record<string, unknown>): Promise<unknown> {
+function sendToPlugin(command: string, params: Record<string, unknown>, timeoutMs?: number): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const socket = proxySocket || figmaSocket
 
@@ -210,11 +210,12 @@ function sendToPlugin(command: string, params: Record<string, unknown>): Promise
       return
     }
 
+    const timeout = timeoutMs ?? COMMAND_TIMEOUT_MS
     const id = `req_${++requestIdCounter}`
     const timer = setTimeout(() => {
       pendingRequests.delete(id)
-      reject(new Error(`Command '${command}' timed out after ${COMMAND_TIMEOUT_MS / 1000}s`))
-    }, COMMAND_TIMEOUT_MS)
+      reject(new Error(`Command '${command}' timed out after ${timeout / 1000}s`))
+    }, timeout)
 
     pendingRequests.set(id, { resolve, reject, timer })
     socket.send(JSON.stringify({ id, command, params }))
@@ -257,6 +258,25 @@ const server = new McpServer({
   version: "0.1.0",
   description: "Control the currently open Figma Slides presentation. Requires the 'Slides MCP Bridge' plugin running in Figma — no file URL needed, the plugin auto-connects via WebSocket.",
 })
+
+server.tool(
+  "ping",
+  "Check if the Figma plugin is connected and responding. Returns slide count and timestamp. Use this to diagnose connection issues.",
+  {},
+  async () => {
+    try {
+      const result = await sendToPlugin("ping", {}, 5_000)
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+      }
+    } catch (err: any) {
+      return {
+        content: [{ type: "text" as const, text: `Error: ${err.message}` }],
+        isError: true,
+      }
+    }
+  }
+)
 
 server.tool(
   "execute",
@@ -326,6 +346,13 @@ async function main() {
   const transport = new StdioServerTransport()
   await server.connect(transport)
   console.error("[figma-slides-mcp] MCP server running on stdio")
+
+  // Exit when the parent process (Claude) closes the stdio pipe
+  process.stdin.on("end", () => {
+    console.error("[figma-slides-mcp] stdin closed, shutting down")
+    process.exit(0)
+  })
+  process.stdin.on("error", () => process.exit(0))
 }
 
 main().catch((err) => {
