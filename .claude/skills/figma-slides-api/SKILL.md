@@ -31,26 +31,34 @@ const node = await figma.getNodeByIdAsync(id);
 const node = figma.getNodeById(id);
 ```
 
-## Font Loading
+## Text Editing
 
-You must call `figma.loadFontAsync()` before modifying any text node's `characters`. This applies to every font family + style used in the text.
+**ALWAYS use the `update_text` MCP tool to change text on slides.** It auto-loads fonts and supports batch updates. Do NOT use `execute` for text changes.
 
-- **PP Telegraf** (our heading font) only loads if installed on the system. Font files must be in `~/Library/Fonts/`. Figma Desktop must be restarted after installing.
-- **Inter** loads without issue (bundled with Figma).
+```
+update_text(slideIndex: 0, updates: [
+  { match: "Old Title", newText: "New Title" },
+  { match: "Old subtitle", newText: "New subtitle" }
+])
+```
+
+If you must use `execute` for non-text operations that touch text (rare), you need to call `figma.loadFontAsync()` before modifying `characters`:
 
 ```js
-await figma.loadFontAsync({ family: "PP Telegraf", style: "Regular" });
-await figma.loadFontAsync({ family: "PP Telegraf", style: "Bold" });
-await figma.loadFontAsync({ family: "Inter", style: "Light" });
 await figma.loadFontAsync({ family: "Inter", style: "Regular" });
-await figma.loadFontAsync({ family: "Inter", style: "Bold" });
 ```
 
 The `loadFont(family, style)` helper in the plugin sandbox wraps `figma.loadFontAsync`.
 
 ## Slide Discovery
 
-The `findSlides()` helper traverses SLIDE_GRID > SLIDE_ROW > SLIDE hierarchy. Slides are returned in presentation order.
+Use the dedicated MCP tools instead of writing custom JS:
+
+- `list_slides` — overview of all slides with text previews
+- `read_slide(slideIndex, depth?)` — full node tree of a single slide
+- `get_styleguide` — extract colors, fonts, and layout patterns
+
+For the `execute` tool, these helpers are in scope:
 
 ```js
 const slides = findSlides();       // all slides in order
@@ -58,27 +66,18 @@ const slide = getSlide(0);         // slide by index
 const info = serialize(slide);     // JSON-friendly summary
 ```
 
-## Template Slide Reference
+## Slide Duplication
 
-| Index | Layout | Background | Use |
-|-------|--------|------------|-----|
-| 0 | Title | Dark (textured) | Model name + subtitle |
-| 1 | Hook | Dark (pthalo) | Provocative question + pitch |
-| 2 | Problem | Dark (pthalo) | Heading + 3 pain points |
-| 3 | Solution | Light (ash beige) | Input > Model > Output diagram |
-| 4 | Benchmarks | Light (ash beige) | Comparison table + advantages |
-| 5 | Cost/Value | Dark (pthalo) | Side-by-side comparison |
-| 6 | Timeline | Light (ash beige) | 4-phase roadmap + details |
-| 7 | How we work | Light (ash beige) | 2-step engagement |
-| 8 | Closing | Dark (textured) | Logo only |
+Use the `duplicate_slide` MCP tool, then `update_text` on the copy:
 
-## File Duplication
-
-The Figma REST API has no file duplication endpoint. Duplicate files manually in the Figma UI (right-click > Duplicate).
+```
+duplicate_slide(sourceIndex: 0)  → { newIndex: 1 }
+update_text(slideIndex: 1, updates: [{ match: "Old Title", newText: "New Title" }])
+```
 
 ## REST API vs Plugin API
 
 - **REST API** (`https://api.figma.com/v1/...`): Team/project/file listing, thumbnails. Uses `X-Figma-Token` header with PAT.
-- **Plugin API** (`figma.*`): Manipulate the currently open file. Runs inside the plugin sandbox, accessed via MCP `execute` tool.
+- **Plugin API** (`figma.*`): Manipulate the currently open file. Accessed via dedicated MCP tools (`update_text`, `duplicate_slide`, etc.) or the `execute` tool for advanced operations.
 
 The `/projects/:id/files` endpoint does NOT return `editorType`, so you can't filter for Slides-only files at the API level.
