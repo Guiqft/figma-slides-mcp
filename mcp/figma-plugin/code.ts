@@ -18,7 +18,19 @@ function serializeNode(node: SceneNode): Record<string, unknown> {
     visible: node.visible,
   };
   if ("opacity" in node) base.opacity = (node as MinimalBlendMixin).opacity;
-  if ("characters" in node) base.characters = (node as TextNode).characters;
+  if ("characters" in node) {
+    const textNode = node as TextNode;
+    base.characters = textNode.characters;
+    try {
+      const fontName = textNode.fontName;
+      if (fontName && typeof fontName === "object" && "family" in fontName) {
+        base.fontName = { family: fontName.family, style: fontName.style };
+      }
+    } catch (_) {
+      base.fontName = "MIXED";
+    }
+    if (typeof textNode.fontSize === "number") base.fontSize = textNode.fontSize;
+  }
   if ("fills" in node) {
     try {
       base.fills = JSON.parse(JSON.stringify((node as GeometryMixin).fills));
