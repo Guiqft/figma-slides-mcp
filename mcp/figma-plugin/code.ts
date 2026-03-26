@@ -72,6 +72,113 @@ async function handleCommand(cmd: string, params: Record<string, unknown>): Prom
         return { success: true, data: { pong: true, slideCount: slides.length, timestamp: Date.now() } };
       }
 
+      case "get_styleguide": {
+        const slides = findSlides();
+        const colors = new Map<string, { count: number; contexts: string[] }>();
+        const fonts = new Map<string, { count: number; contexts: string[] }>();
+        const layouts: { slideIndex: number; name: string; textPreview: string; regions: { name: string; type: string; x: number; y: number; width: number; height: number }[] }[] = [];
+
+        const colorKey = (r: number, g: number, b: number) =>
+          `#${[r, g, b].map((c) => Math.round(c * 255).toString(16).padStart(2, "0")).join("")}`;
+
+        const walkNode = (node: SceneNode, slideIndex: number, slideName: string) => {
+          // Collect colors from fills
+          if ("fills" in node) {
+            try {
+              const fills = (node as GeometryMixin).fills;
+              if (Array.isArray(fills)) {
+                for (const fill of fills) {
+                  if (fill.type === "SOLID" && fill.visible !== false) {
+                    const key = colorKey(fill.color.r, fill.color.g, fill.color.b);
+                    const entry = colors.get(key) || { count: 0, contexts: [] };
+                    entry.count++;
+                    if (entry.contexts.length < 3) {
+                      const ctx = node.type === "TEXT" ? `text "${(node as TextNode).characters.slice(0, 30)}"` : `${node.type.toLowerCase()} "${node.name}"`;
+                      entry.contexts.push(`slide ${slideIndex}: ${ctx}`);
+                    }
+                    colors.set(key, entry);
+                  }
+                }
+              }
+            } catch (_) {}
+          }
+
+          // Collect fonts from text nodes
+          if (node.type === "TEXT") {
+            const textNode = node as TextNode;
+            try {
+              const fontName = textNode.fontName;
+              if (fontName && typeof fontName === "object" && "family" in fontName) {
+                const key = `${fontName.family} ${fontName.style}`;
+                const entry = fonts.get(key) || { count: 0, contexts: [] };
+                entry.count++;
+                if (entry.contexts.length < 3) {
+                  entry.contexts.push(`slide ${slideIndex}: "${textNode.characters.slice(0, 40)}"`);
+                }
+                fonts.set(key, entry);
+              }
+            } catch (_) {
+              // Mixed fonts — walk segments not available, skip
+            }
+          }
+
+          if ("children" in node) {
+            for (const child of (node as ChildrenMixin).children) walkNode(child as SceneNode, slideIndex, slideName);
+          }
+        };
+
+        for (let i = 0; i < slides.length; i++) {
+          const slide = slides[i];
+          walkNode(slide, i, slide.name);
+
+          // Extract top-level layout regions
+          if ("children" in slide) {
+            const regions = (slide as ChildrenMixin).children.map((child) => ({
+              name: child.name,
+              type: (child as SceneNode).type,
+              x: (child as SceneNode).x,
+              y: (child as SceneNode).y,
+              width: (child as SceneNode).width,
+              height: (child as SceneNode).height,
+            }));
+
+            // Text preview
+            const texts: string[] = [];
+            const walkText = (n: SceneNode) => {
+              if (texts.length >= 2) return;
+              if (n.type === "TEXT") {
+                const t = (n as TextNode).characters.trim();
+                if (t) texts.push(t.length > 60 ? t.slice(0, 60) + "…" : t);
+              }
+              if ("children" in n) for (const c of (n as ChildrenMixin).children) walkText(c as SceneNode);
+            };
+            for (const c of (slide as ChildrenMixin).children) walkText(c as SceneNode);
+
+            layouts.push({ slideIndex: i, name: slide.name, textPreview: texts.join(" | "), regions });
+          }
+        }
+
+        // Sort colors and fonts by frequency
+        const sortedColors = [...colors.entries()]
+          .sort((a, b) => b[1].count - a[1].count)
+          .map(([hex, info]) => ({ hex, ...info }));
+
+        const sortedFonts = [...fonts.entries()]
+          .sort((a, b) => b[1].count - a[1].count)
+          .map(([font, info]) => ({ font, ...info }));
+
+        return {
+          success: true,
+          data: {
+            slideCount: slides.length,
+            slideDimensions: { width: slides[0]?.width ?? 1920, height: slides[0]?.height ?? 1080 },
+            colors: sortedColors,
+            fonts: sortedFonts,
+            layouts,
+          },
+        };
+      }
+
       case "execute": {
         const code = params.code as string;
         if (!code) return { success: false, error: "No code provided" };

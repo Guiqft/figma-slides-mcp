@@ -256,8 +256,33 @@ function startBridge(): Promise<"server" | "proxy"> {
 const server = new McpServer({
   name: "figma-slides",
   version: "0.1.0",
-  description: "Control the currently open Figma Slides presentation. Requires the 'Slides MCP Bridge' plugin running in Figma — no file URL needed, the plugin auto-connects via WebSocket.",
+  description: `Control the currently open Figma Slides presentation. No file URL needed — the plugin auto-connects via WebSocket.
+
+IMPORTANT: Before creating or editing slides, ALWAYS study the existing deck first:
+1. Use list_slides to see all slides and their content
+2. Use get_styleguide to extract the design system (colors, fonts, layout patterns) from the current deck
+3. Use read_slide on a few representative slides to understand the node structure
+4. Match the existing style when creating or modifying slides — treat the deck as a template with established patterns.`,
 })
+
+server.tool(
+  "get_styleguide",
+  "Extract the design system from the current deck: colors (sorted by frequency with usage context), fonts, slide dimensions, and layout regions for every slide. Use this before creating or editing slides to match the existing style.",
+  {},
+  async () => {
+    try {
+      const result = await sendToPlugin("get_styleguide", {}, 30_000)
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+      }
+    } catch (err: any) {
+      return {
+        content: [{ type: "text" as const, text: `Error: ${err.message}` }],
+        isError: true,
+      }
+    }
+  }
+)
 
 server.tool(
   "ping",
