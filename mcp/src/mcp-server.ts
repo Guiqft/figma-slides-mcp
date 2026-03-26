@@ -258,11 +258,12 @@ const server = new McpServer({
   version: "0.1.0",
   description: `Control the currently open Figma Slides presentation. No file URL needed — the plugin auto-connects via WebSocket.
 
-IMPORTANT: Before creating or editing slides, ALWAYS study the existing deck first:
-1. Use list_slides to see all slides and their content
-2. Use get_styleguide to extract the design system (colors, fonts, layout patterns) from the current deck
-3. Use read_slide on a few representative slides to understand the node structure
-4. Match the existing style when creating or modifying slides — treat the deck as a template with established patterns.`,
+IMPORTANT — preferred workflow:
+1. Before creating or editing slides, study the existing deck: use list_slides, get_styleguide, and read_slide.
+2. To change text, ALWAYS use update_text — it auto-loads fonts and supports batch updates. Do NOT use execute for text changes.
+3. To duplicate slides, use duplicate_slide then update_text on the copy.
+4. Only use execute for operations that no dedicated tool covers (creating shapes, changing fills, etc.).
+5. Match the existing style — treat the deck as a template with established patterns.`,
 })
 
 server.tool(
@@ -360,6 +361,54 @@ server.tool(
   async (params) => {
     try {
       const result = await sendToPlugin("read_slide", params as Record<string, unknown>)
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+      }
+    } catch (err: any) {
+      return {
+        content: [{ type: "text" as const, text: `Error: ${err.message}` }],
+        isError: true,
+      }
+    }
+  }
+)
+
+server.tool(
+  "update_text",
+  `PREFERRED way to change text on slides — use this instead of execute for all text edits. Fonts are loaded automatically.
+
+Matches text nodes by: (1) node name, (2) exact text content, or (3) text starting with the match string. Supports multiple updates in one call. Use list_slides or read_slide to find the current text, then match it here.`,
+  {
+    slideIndex: z.number().int().min(0).describe("Slide index to update"),
+    updates: z.array(z.object({
+      match: z.string().describe("Node name or text content to find"),
+      newText: z.string().describe("New text to set"),
+    })).describe("Array of text updates to apply"),
+  },
+  async (params) => {
+    try {
+      const result = await sendToPlugin("update_text", params as Record<string, unknown>)
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+      }
+    } catch (err: any) {
+      return {
+        content: [{ type: "text" as const, text: `Error: ${err.message}` }],
+        isError: true,
+      }
+    }
+  }
+)
+
+server.tool(
+  "duplicate_slide",
+  "Duplicate a slide and insert the copy immediately after the source. Returns the new slide's index and ID. Use this to create new slides based on existing templates.",
+  {
+    sourceIndex: z.number().int().min(0).describe("Index of the slide to duplicate"),
+  },
+  async (params) => {
+    try {
+      const result = await sendToPlugin("duplicate_slide", params as Record<string, unknown>)
       return {
         content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
       }

@@ -278,6 +278,92 @@ async function handleCommand(cmd: string, params: Record<string, unknown>): Prom
         return { success: true, data: results };
       }
 
+      case "update_text": {
+        const slideIndex = params.slideIndex as number;
+        const slide = getSlide(slideIndex);
+        if (!slide) return { success: false, error: `Slide at index ${slideIndex} not found` };
+
+        const updates = params.updates as { match: string; newText: string }[];
+        if (!updates || !Array.isArray(updates) || updates.length === 0) {
+          return { success: false, error: "updates must be an array of { match, newText }" };
+        }
+
+        // Collect all text nodes
+        const textNodes: TextNode[] = [];
+        const walkForText = (node: SceneNode) => {
+          if (node.type === "TEXT") textNodes.push(node as TextNode);
+          if ("children" in node) for (const c of (node as ChildrenMixin).children) walkForText(c as SceneNode);
+        };
+        walkForText(slide);
+
+        const results: { match: string; found: boolean; nodeName?: string; oldText?: string }[] = [];
+
+        for (const { match, newText } of updates) {
+          // Find by node name first, then by text content (startsWith for partial match)
+          let target = textNodes.find((t) => t.name === match);
+          if (!target) target = textNodes.find((t) => t.characters === match);
+          if (!target) target = textNodes.find((t) => t.characters.startsWith(match));
+
+          if (!target) {
+            results.push({ match, found: false });
+            continue;
+          }
+
+          // Auto-load fonts
+          const len = target.characters.length;
+          const fontsToLoad = new Set<string>();
+          for (let i = 0; i < len; i++) {
+            try {
+              const font = target.getRangeFontName(i, i + 1) as FontName;
+              fontsToLoad.add(`${font.family}::${font.style}`);
+            } catch (_) { break; }
+          }
+          for (const key of fontsToLoad) {
+            const [family, style] = key.split("::");
+            await figma.loadFontAsync({ family, style });
+          }
+
+          const oldText = target.characters;
+          target.characters = newText;
+          results.push({ match, found: true, nodeName: target.name, oldText });
+        }
+
+        return { success: true, data: results };
+      }
+
+      case "duplicate_slide": {
+        const sourceIndex = params.sourceIndex as number;
+        const slide = getSlide(sourceIndex);
+        if (!slide) return { success: false, error: `Slide at index ${sourceIndex} not found` };
+
+        const parent = slide.parent;
+        if (!parent || !("children" in parent)) {
+          return { success: false, error: "Cannot find parent container for slide" };
+        }
+
+        const clone = slide.clone();
+        const siblings = (parent as ChildrenMixin).children;
+        const currentPos = siblings.indexOf(slide as SceneNode);
+
+        // Insert after the source slide
+        if (currentPos < siblings.length - 1) {
+          (parent as ChildrenMixin & BaseNodeMixin).insertChild(currentPos + 1, clone);
+        }
+
+        const slides = findSlides();
+        const newIndex = slides.indexOf(clone);
+
+        return {
+          success: true,
+          data: {
+            sourceIndex,
+            newIndex,
+            newId: clone.id,
+            name: clone.name,
+          },
+        };
+      }
+
       case "screenshot_slide": {
         const slide = getSlide(params.slideIndex as number);
         if (!slide) return { success: false, error: `Slide at index ${params.slideIndex} not found` };
