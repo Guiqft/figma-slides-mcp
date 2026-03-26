@@ -97,6 +97,14 @@ Any MCP-compatible client can use figma-slides-mcp:
 
 ## MCP Tools
 
+### `get_styleguide`
+
+Extract the design system from the current deck — colors (sorted by frequency with usage context), fonts, slide dimensions, and layout regions for every slide. Use this before creating or editing slides to match the existing style.
+
+### `ping`
+
+Check if the Figma plugin is connected and responding. Returns slide count and timestamp.
+
 ### `execute`
 
 Run JavaScript in the Figma plugin sandbox. Has access to the full [`figma` Plugin API](https://www.figma.com/plugin-docs/api/api-reference/) plus these helpers:
@@ -108,9 +116,35 @@ Run JavaScript in the Figma plugin sandbox. Has access to the full [`figma` Plug
 | `serialize(node?)` | Serialize a node (or the whole page) to a JSON summary |
 | `loadFont(family, style?)` | Load a font before setting text (style defaults to `"Regular"`) |
 
+### `list_slides`
+
+List all slides in the current presentation with their index, name, dimensions, skipped status, and a text preview.
+
+### `read_slide`
+
+Read the full node tree of a single slide, including all nested children with their properties (text, fills, position, size).
+
+| Parameter | Description |
+|-----------|-------------|
+| `slideIndex` | Slide index to read (0-based) |
+| `depth` | Max tree depth (default 5, max 10) |
+
 ### `screenshot_slide`
 
 Export a slide as PNG and return it as a base64 image.
+
+| Parameter | Description |
+|-----------|-------------|
+| `slideIndex` | Slide index to screenshot (0-based) |
+| `scale` | Export scale (default 1, use 0.5 for thumbnails) |
+
+### `screenshot_presentation`
+
+Export all slides as PNG thumbnails in a single call. Returns an array of images.
+
+| Parameter | Description |
+|-----------|-------------|
+| `scale` | Export scale (default 0.5 for thumbnails, use 1 for full resolution) |
 
 ## Development
 
