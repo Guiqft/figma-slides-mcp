@@ -258,6 +258,9 @@ const server = new McpServer({
   version: "0.1.0",
   description: `Control the currently open Figma Slides presentation. No file URL needed — the plugin auto-connects via WebSocket.
 
+IMPORTANT — slide indexing is 0-based:
+Slide indices start at 0. When a user refers to "slide 1", that is index 0. "Slide 7" is index 6. Always subtract 1 from the user's slide number.
+
 IMPORTANT — preferred workflow:
 1. Before creating or editing slides, study the existing deck: use list_slides, get_styleguide, and read_slide.
 2. To change text, ALWAYS use update_text — it auto-loads fonts and supports batch updates. Do NOT use execute for text changes.
@@ -355,7 +358,7 @@ server.tool(
   "read_slide",
   "Read the full node tree of a single slide, including all nested children with their properties (text, fills, position, size). Use this to understand a slide's structure before editing.",
   {
-    slideIndex: z.number().int().min(0).describe("Slide index to read"),
+    slideIndex: z.number().int().min(0).describe("0-based slide index (user's 'slide 1' = index 0)"),
     depth: z.number().int().min(1).max(10).optional().describe("Max tree depth (default 5)"),
   },
   async (params) => {
@@ -379,7 +382,7 @@ server.tool(
 
 Matches text nodes by: (1) node name, (2) exact text content, or (3) text starting with the match string. Supports multiple updates in one call. Use list_slides or read_slide to find the current text, then match it here.`,
   {
-    slideIndex: z.number().int().min(0).describe("Slide index to update"),
+    slideIndex: z.number().int().min(0).describe("0-based slide index (user's 'slide 1' = index 0)"),
     updates: z.array(z.object({
       match: z.string().describe("Node name or text content to find"),
       newText: z.string().describe("New text to set"),
@@ -404,7 +407,7 @@ server.tool(
   "duplicate_slide",
   "Duplicate a slide and insert the copy immediately after the source. Returns the new slide's index and ID. Use this to create new slides based on existing templates.",
   {
-    sourceIndex: z.number().int().min(0).describe("Index of the slide to duplicate"),
+    sourceIndex: z.number().int().min(0).describe("0-based index of the slide to duplicate (user's 'slide 1' = index 0)"),
   },
   async (params) => {
     try {
@@ -453,7 +456,7 @@ server.tool(
   "screenshot_slide",
   "Export a slide as a PNG screenshot from the currently open Figma Slides file. Returns base64-encoded image data. No URL needed — the plugin is already connected.",
   {
-    slideIndex: z.number().int().min(0).describe("Slide index to screenshot"),
+    slideIndex: z.number().int().min(0).describe("0-based slide index (user's 'slide 1' = index 0)"),
     scale: z.number().optional().describe("Export scale (default 1, use 0.5 for thumbnails)"),
   },
   async (params) => {
