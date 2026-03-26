@@ -129,6 +129,23 @@ Read the full node tree of a single slide, including all nested children with th
 | `slideIndex` | Slide index to read (0-based) |
 | `depth` | Max tree depth (default 5, max 10) |
 
+### `update_text`
+
+Update text on a slide by matching node name or text content. Fonts are loaded automatically. Supports batch updates in one call.
+
+| Parameter | Description |
+|-----------|-------------|
+| `slideIndex` | Slide index to update (0-based) |
+| `updates` | Array of `{ match, newText }` — matches by node name, exact text, or text prefix |
+
+### `duplicate_slide`
+
+Duplicate a slide and insert the copy immediately after the source. Returns the new slide's index and ID.
+
+| Parameter | Description |
+|-----------|-------------|
+| `sourceIndex` | Index of the slide to duplicate (0-based) |
+
 ### `screenshot_slide`
 
 Export a slide as PNG and return it as a base64 image.
