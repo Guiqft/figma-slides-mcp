@@ -80,6 +80,85 @@ async function handleCommand(cmd: string, params: Record<string, unknown>): Prom
         return { success: true, data: result };
       }
 
+      case "list_slides": {
+        const slides = findSlides();
+        const result = slides.map((slide, index) => {
+          const info: Record<string, unknown> = {
+            index,
+            id: slide.id,
+            name: slide.name,
+            type: slide.type,
+            width: slide.width,
+            height: slide.height,
+          };
+          if ("isSkippedSlide" in slide) info.isSkipped = (slide as any).isSkippedSlide;
+          if ("children" in slide) {
+            const children = (slide as ChildrenMixin).children;
+            info.childCount = children.length;
+            // Collect text preview from first few text nodes
+            const texts: string[] = [];
+            const walkForText = (node: SceneNode) => {
+              if (texts.length >= 5) return;
+              if (node.type === "TEXT") {
+                const chars = (node as TextNode).characters.trim();
+                if (chars) texts.push(chars.length > 80 ? chars.slice(0, 80) + "…" : chars);
+              }
+              if ("children" in node) {
+                for (const child of (node as ChildrenMixin).children) walkForText(child as SceneNode);
+              }
+            };
+            for (const child of children) walkForText(child as SceneNode);
+            if (texts.length > 0) info.textPreview = texts;
+          }
+          return info;
+        });
+        return { success: true, data: result };
+      }
+
+      case "read_slide": {
+        const slideIndex = params.slideIndex as number;
+        const maxDepth = (params.depth as number) ?? 5;
+        const slide = getSlide(slideIndex);
+        if (!slide) return { success: false, error: `Slide at index ${slideIndex} not found` };
+
+        const serializeDeep = (node: SceneNode, depth: number): Record<string, unknown> => {
+          const info = serializeNode(node);
+          if ("children" in node && depth < maxDepth) {
+            info.children = (node as ChildrenMixin).children.map(
+              (child) => serializeDeep(child as SceneNode, depth + 1)
+            );
+          }
+          return info;
+        };
+
+        return { success: true, data: serializeDeep(slide, 0) };
+      }
+
+      case "screenshot_presentation": {
+        const slides = findSlides();
+        const scale = (params.scale as number) ?? 0.5;
+        const settings: ExportSettings = {
+          format: "PNG",
+          constraint: { type: "SCALE", value: scale },
+        };
+
+        const promises = slides.map((slide, i) => {
+          let exportable: SceneNode = slide;
+          if (!("exportAsync" in exportable) && "children" in exportable) {
+            const child = (exportable as ChildrenMixin).children.find((c) => "exportAsync" in c);
+            if (child) exportable = child as SceneNode;
+          }
+          if (!("exportAsync" in exportable)) return null;
+          return (exportable as ExportMixin).exportAsync(settings).then((bytes) => ({
+            slideIndex: i,
+            base64: figma.base64Encode(bytes),
+          }));
+        });
+
+        const results = (await Promise.all(promises)).filter(Boolean);
+        return { success: true, data: results };
+      }
+
       case "screenshot_slide": {
         const slide = getSlide(params.slideIndex as number);
         if (!slide) return { success: false, error: `Slide at index ${params.slideIndex} not found` };

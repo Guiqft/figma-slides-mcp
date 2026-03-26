@@ -307,6 +307,75 @@ Return a value and it will be sent back as the tool result. Keep output concise 
 )
 
 server.tool(
+  "list_slides",
+  "List all slides in the current presentation with their index, name, dimensions, skipped status, and a text preview (first 5 text nodes). Use this to get an overview of the deck before taking action.",
+  {},
+  async () => {
+    try {
+      const result = await sendToPlugin("list_slides", {})
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+      }
+    } catch (err: any) {
+      return {
+        content: [{ type: "text" as const, text: `Error: ${err.message}` }],
+        isError: true,
+      }
+    }
+  }
+)
+
+server.tool(
+  "read_slide",
+  "Read the full node tree of a single slide, including all nested children with their properties (text, fills, position, size). Use this to understand a slide's structure before editing.",
+  {
+    slideIndex: z.number().int().min(0).describe("Slide index to read"),
+    depth: z.number().int().min(1).max(10).optional().describe("Max tree depth (default 5)"),
+  },
+  async (params) => {
+    try {
+      const result = await sendToPlugin("read_slide", params as Record<string, unknown>)
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+      }
+    } catch (err: any) {
+      return {
+        content: [{ type: "text" as const, text: `Error: ${err.message}` }],
+        isError: true,
+      }
+    }
+  }
+)
+
+server.tool(
+  "screenshot_presentation",
+  "Export all slides as PNG thumbnails in a single call. Returns an array of base64-encoded images. Use this to visually review the entire deck at once instead of screenshotting slides one by one.",
+  {
+    scale: z.number().optional().describe("Export scale (default 0.5 for thumbnails, use 1 for full resolution)"),
+  },
+  async (params) => {
+    try {
+      const results = (await sendToPlugin("screenshot_presentation", params as Record<string, unknown>, 120_000)) as {
+        slideIndex: number
+        base64: string
+      }[]
+      return {
+        content: results.map((r) => ({
+          type: "image" as const,
+          data: r.base64,
+          mimeType: "image/png" as const,
+        })),
+      }
+    } catch (err: any) {
+      return {
+        content: [{ type: "text" as const, text: `Error: ${err.message}` }],
+        isError: true,
+      }
+    }
+  }
+)
+
+server.tool(
   "screenshot_slide",
   "Export a slide as a PNG screenshot from the currently open Figma Slides file. Returns base64-encoded image data. No URL needed — the plugin is already connected.",
   {
