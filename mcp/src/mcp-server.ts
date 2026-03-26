@@ -9,7 +9,7 @@ import { WebSocketServer, WebSocket } from "ws"
 import { z } from "zod"
 
 const WS_PORT = 3055
-const COMMAND_TIMEOUT_MS = 15_000
+const COMMAND_TIMEOUT_MS = 30_000
 const PROXY_PATH = "/mcp-proxy"
 
 // ── Shared state ──────────────────────────────────────────
@@ -255,18 +255,21 @@ function startBridge(): Promise<"server" | "proxy"> {
 const server = new McpServer({
   name: "figma-slides",
   version: "0.1.0",
+  description: "Control the currently open Figma Slides presentation. Requires the 'Slides MCP Bridge' plugin running in Figma — no file URL needed, the plugin auto-connects via WebSocket.",
 })
 
 server.tool(
   "execute",
-  `Run JavaScript in the Figma plugin sandbox. The code is the body of an async function with these in scope:
+  `Run JavaScript in the Figma plugin sandbox of the currently open Figma Slides file. No URL or file ID needed — the plugin is already connected.
+
+The code is the body of an async function with these in scope:
   - figma — the Figma Plugin API global
   - getSlide(index) — returns the slide at the given index (navigates SLIDE_GRID → SLIDE_ROW → SLIDE automatically)
   - findSlides() — returns an array of all SLIDE nodes in presentation order
   - serialize(node) — returns a JSON-friendly summary of a node (id, name, type, x, y, width, height, visible, opacity, characters, fills, childCount)
   - loadFont(family, style?) — shorthand for figma.loadFontAsync({ family, style })
 
-Return a value and it will be sent back as the tool result.`,
+Return a value and it will be sent back as the tool result. Keep output concise — large recursive trees can exceed size limits.`,
   { code: z.string().describe("JavaScript code to execute (body of an async function)") },
   async (params) => {
     try {
@@ -285,7 +288,7 @@ Return a value and it will be sent back as the tool result.`,
 
 server.tool(
   "screenshot_slide",
-  "Export a slide as a PNG screenshot. Returns base64-encoded image data.",
+  "Export a slide as a PNG screenshot from the currently open Figma Slides file. Returns base64-encoded image data. No URL needed — the plugin is already connected.",
   {
     slideIndex: z.number().int().min(0).describe("Slide index to screenshot"),
     scale: z.number().optional().describe("Export scale (default 1, use 0.5 for thumbnails)"),
