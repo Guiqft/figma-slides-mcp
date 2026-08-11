@@ -4,6 +4,11 @@
 
 figma.showUI(__html__, { visible: false, width: 0, height: 0 });
 
+// The UI iframe is hidden, and Figma throttles timers in hidden frames — so the
+// reconnect clock lives here in the sandbox and nudges the UI instead.
+const RECONNECT_TICK_MS = 3000;
+setInterval(() => figma.ui.postMessage({ type: "tick" }), RECONNECT_TICK_MS);
+
 // ── Helpers (available to execute'd code) ────────────────
 
 function serializeNode(node: SceneNode): Record<string, unknown> {
@@ -394,8 +399,23 @@ async function handleCommand(cmd: string, params: Record<string, unknown>): Prom
 
 // ── Message relay ────────────────────────────────────────
 
-figma.ui.onmessage = async (msg: { id: string; command: string; params: Record<string, unknown> }) => {
-  if (!msg.id || !msg.command) return;
+type UiMessage = {
+  type?: string;
+  id?: string;
+  command?: string;
+  params?: Record<string, unknown>;
+};
+
+figma.ui.onmessage = async (msg: UiMessage) => {
+  if (msg && msg.type === "ui-ready") {
+    figma.ui.postMessage({
+      type: "identity",
+      docName: figma.root.name,
+      editorType: figma.editorType,
+    });
+    return;
+  }
+  if (!msg || !msg.id || !msg.command) return;
   const result = await handleCommand(msg.command, msg.params || {});
   figma.ui.postMessage({ id: msg.id, ...result });
 };

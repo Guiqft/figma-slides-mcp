@@ -22,58 +22,80 @@
     <div id="status" class="disconnected">Connecting to MCP server...</div>
     <script>
       const WS_URL = "ws://localhost:3055";
+      const PROTOCOL = 1;
+      const RETRY_MS = 500;
+
       let ws = null;
-      let reconnectTimer = null;
+      let identity = null;
       const statusEl = document.getElementById("status");
 
+      function setStatus(text, cls) {
+        statusEl.textContent = text;
+        statusEl.className = cls;
+      }
+
       function connect() {
+        if (!identity) return;
         if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
 
         ws = new WebSocket(WS_URL);
 
         ws.onopen = () => {
-          statusEl.textContent = "Connected to MCP server";
-          statusEl.className = "connected";
-          if (reconnectTimer) {
-            clearInterval(reconnectTimer);
-            reconnectTimer = null;
-          }
+          setStatus("Connected — " + identity.docName, "connected");
+          ws.send(
+            JSON.stringify({
+              type: "hello",
+              role: "plugin",
+              protocol: PROTOCOL,
+              docName: identity.docName,
+              editorType: identity.editorType,
+            })
+          );
         };
 
         ws.onmessage = (event) => {
+          let msg;
           try {
-            const msg = JSON.parse(event.data);
-            // Forward command from MCP server to plugin sandbox
-            parent.postMessage({ pluginMessage: msg }, "*");
+            msg = JSON.parse(event.data);
           } catch (e) {
-            console.error("Failed to parse WS message:", e);
+            return;
           }
+          if (msg && msg.type === "error" && msg.code === "protocol_mismatch") {
+            setStatus("Broker version mismatch — update figma-slides-mcp", "disconnected");
+            return;
+          }
+          if (!msg || !msg.id || !msg.command) return;
+          parent.postMessage({ pluginMessage: msg }, "*");
         };
 
         ws.onclose = () => {
-          statusEl.textContent = "Disconnected — reconnecting...";
-          statusEl.className = "disconnected";
+          setStatus("Disconnected — reconnecting...", "disconnected");
           ws = null;
-          if (!reconnectTimer) {
-            reconnectTimer = setInterval(connect, 3000);
-          }
+          setTimeout(connect, RETRY_MS);
         };
 
         ws.onerror = () => {
-          // onclose will fire after this
+          // onclose fires after this and owns the retry.
         };
       }
 
-      // Receive results from plugin sandbox and forward to MCP server
       window.onmessage = (event) => {
-        const msg = event.data?.pluginMessage;
-        if (!msg || !msg.id) return;
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify(msg));
+        const msg = event.data && event.data.pluginMessage;
+        if (!msg) return;
+        if (msg.type === "identity") {
+          identity = { docName: msg.docName, editorType: msg.editorType };
+          connect();
+          return;
         }
+        if (msg.type === "tick") {
+          connect();
+          return;
+        }
+        if (!msg.id) return;
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
       };
 
-      connect();
+      parent.postMessage({ pluginMessage: { type: "ui-ready" } }, "*");
     </script>
   </body>
 </html>
