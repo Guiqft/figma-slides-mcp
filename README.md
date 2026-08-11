@@ -9,10 +9,21 @@
 ## How It Works
 
 ```
-AI Assistant  <-MCP->  MCP Server  <-WebSocket :3055->  Figma Plugin  <-Plugin API->  Figma Slides
+AI Assistant  <-MCP->  MCP Server  <-WS :3055->  Broker  <-WS :3055->  Figma Plugin  <-Plugin API->  Figma Slides
 ```
 
 The MCP server communicates with a Figma plugin running inside your Figma Slides file. The plugin executes JavaScript in the Figma plugin sandbox and returns results.
+
+The MCP server does not own the WebSocket port. A small broker daemon
+(`mcp/dist/broker.mjs`) owns `ws://localhost:3055`; the MCP server starts it on
+demand and reconnects to it. The broker outlives MCP client restarts, so
+restarting your AI assistant no longer breaks the bridge. It shuts itself down
+after 30 minutes with nothing connected.
+
+Several Figma files can be connected at once, each addressed by an optional
+`deck` argument. With a single deck connected nothing changes. With two or more
+and no pinned deck, the tools refuse to guess — they return the connected deck
+names and wait for a `deck` argument or a `use_deck` call.
 
 ## Prerequisites
 
@@ -97,6 +108,20 @@ Any MCP-compatible client can use figma-slides-mcp:
 
 ## MCP Tools
 
+Every tool below takes an optional `deck` — a `connId` from `list_decks`, a
+`connId` prefix, or part of the Figma file name. Omit it unless more than one
+deck is connected.
+
+### `list_decks`
+
+List the Figma decks currently connected, with `connId` (routing key), `docName`
+(the Figma file name), `editorType`, and `isPinned`.
+
+### `use_deck`
+
+Pin one deck as the target for the rest of the session. A `connId` is
+regenerated every time the plugin is relaunched, so prefer the file name.
+
 ### `get_styleguide`
 
 Extract the design system from the current deck — colors (sorted by frequency with usage context), fonts, slide dimensions, and layout regions for every slide. Use this before creating or editing slides to match the existing style.
@@ -173,7 +198,11 @@ cd figma-slides-mcp
 npm install
 npm run build:mcp    # Build MCP server + Figma plugin
 npm run dev:mcp      # Watch mode for MCP builds
+npm test             # Build, then run the node --test suite (needs Node 22+)
 ```
+
+The published package runs on Node 18+; only the test script needs Node 22, for
+the test runner's glob support.
 
 ## License
 
