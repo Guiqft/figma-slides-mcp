@@ -14,9 +14,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Node 22+: the `npm install -g npm@latest` below needs it. npm 12 dropped
+      # Node 20 (engines ^22.22.2 || ^24.15.0 || >=26.0.0).
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           registry-url: https://registry.npmjs.org
 
       - run: npm install -g npm@latest
