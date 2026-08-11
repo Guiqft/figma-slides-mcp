@@ -34,7 +34,12 @@ async function resolveDeck(deck?: string): Promise<string> {
   // A bridge that never came up is a different problem from "no deck open", and
   // the two errors send the user to completely different places.
   if (!(await client.ready(READY_TIMEOUT_MS))) throw new Error(client.connectionHint())
-  const outcome = resolveTarget(client.getTargets(), deck, pinnedConnId)
+  const outcome = resolveTarget(
+    client.getTargets(),
+    deck,
+    pinnedConnId,
+    client.getUnidentifiedCount()
+  )
   if (!outcome.ok) throw new Error(outcome.error)
   return outcome.connId
 }
@@ -108,7 +113,7 @@ server.tool(
   async ({ deck }) => {
     if (!(await client.ready(READY_TIMEOUT_MS))) return errorResult(client.connectionHint())
     const targets = client.getTargets()
-    const outcome = matchDeck(targets, deck)
+    const outcome = matchDeck(targets, deck, client.getUnidentifiedCount())
     if (!outcome.ok) return errorResult(outcome.error)
     pinnedConnId = outcome.connId
     const target = targets.find((t) => t.connId === outcome.connId)!

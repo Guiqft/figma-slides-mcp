@@ -16,6 +16,7 @@ export interface BrokerOptions {
   pingIntervalMs?: number;
   maxMissedPongs?: number;
   idleShutdownMs?: number;
+  identifyGraceMs?: number;
   onIdleShutdown?: () => void;
 }
 
@@ -42,12 +43,17 @@ export function startBroker(options: BrokerOptions = {}): Promise<BrokerHandle> 
   const pingIntervalMs = options.pingIntervalMs ?? 20_000;
   const maxMissedPongs = options.maxMissedPongs ?? 2;
   const idleShutdownMs = options.idleShutdownMs ?? 30 * 60_000;
+  const identifyGraceMs = options.identifyGraceMs ?? 5_000;
   const onIdleShutdown = options.onIdleShutdown ?? (() => process.exit(0));
 
   const plugins = new Map<string, PluginConn>();
   const controllers = new Map<string, WebSocket>();
   const routes = new Map<string, Route>();
   const missedPongs = new WeakMap<WebSocket, number>();
+  // Sockets that are up but never said hello. A pre-2.0 plugin sits here
+  // forever: it answers pings at the protocol level, so the reaper never
+  // touches it, and it would otherwise be completely invisible.
+  const unidentified = new Set<WebSocket>();
   let lastActive = Date.now();
   let wireCounter = 0;
 
@@ -63,8 +69,12 @@ export function startBroker(options: BrokerOptions = {}): Promise<BrokerHandle> 
     }));
   }
 
+  function targetsMessage() {
+    return { type: "targets", targets: targetList(), unidentified: unidentified.size };
+  }
+
   function broadcastTargets(): void {
-    const msg = { type: "targets", targets: targetList() };
+    const msg = targetsMessage();
     for (const ws of controllers.values()) send(ws, msg);
   }
 
@@ -74,6 +84,13 @@ export function startBroker(options: BrokerOptions = {}): Promise<BrokerHandle> 
     missedPongs.set(ws, 0);
     lastActive = Date.now();
     let identity: { role: "plugin" | "controller"; connId: string } | null = null;
+
+    const graceTimer = setTimeout(() => {
+      if (identity) return;
+      unidentified.add(ws);
+      broadcastTargets();
+    }, identifyGraceMs);
+    graceTimer.unref?.();
 
     ws.on("pong", () => missedPongs.set(ws, 0));
     ws.on("error", () => {
@@ -96,6 +113,7 @@ export function startBroker(options: BrokerOptions = {}): Promise<BrokerHandle> 
           ws.close();
           return;
         }
+        clearTimeout(graceTimer);
         const connId = randomUUID();
         if (msg.role === "plugin") {
           identity = { role: "plugin", connId };
@@ -109,7 +127,7 @@ export function startBroker(options: BrokerOptions = {}): Promise<BrokerHandle> 
         } else if (msg.role === "controller") {
           identity = { role: "controller", connId };
           controllers.set(connId, ws);
-          send(ws, { type: "targets", targets: targetList() });
+          send(ws, targetsMessage());
         } else {
           ws.close();
         }
@@ -155,7 +173,11 @@ export function startBroker(options: BrokerOptions = {}): Promise<BrokerHandle> 
     });
 
     ws.on("close", () => {
-      if (!identity) return;
+      clearTimeout(graceTimer);
+      if (!identity) {
+        if (unidentified.delete(ws)) broadcastTargets();
+        return;
+      }
       if (identity.role === "plugin") {
         plugins.delete(identity.connId);
         // Reject only this target's in-flight work. A second deck's commands

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolveTarget, matchDeck, shortId } from "../dist/target-resolver.mjs";
+import { resolveTarget, matchDeck, shortId, noDecksError } from "../dist/target-resolver.mjs";
 
 const A = { connId: "a3f1aaaa-1111-4111-8111-111111111111", docName: "Deck de Vendas", editorType: "slides" };
 const B = { connId: "b7c2bbbb-2222-4222-8222-222222222222", docName: "Deck de Produto", editorType: "slides" };
@@ -71,4 +71,30 @@ test("matchDeck reports the connected decks when nothing matches", () => {
 
 test("shortId is the first 8 characters", () => {
   assert.equal(shortId(A.connId), "a3f1aaaa");
+});
+
+test("no decks and an unidentified client blames the outdated plugin", () => {
+  const out = resolveTarget([], undefined, null, 1);
+  assert.equal(out.ok, false);
+  assert.match(out.error, /never identified/);
+  assert.match(out.error, /outdated/i);
+  assert.match(out.error, /Claude Code Slides/);
+  assert.doesNotMatch(out.error, /^No Figma deck is connected\.$/);
+});
+
+test("the unidentified wording is pluralised", () => {
+  assert.match(resolveTarget([], undefined, null, 1).error, /1 client on the bridge never/);
+  assert.match(resolveTarget([], undefined, null, 3).error, /3 clients on the bridge never/);
+});
+
+test("matchDeck also blames the outdated plugin when nothing is connected", () => {
+  const out = matchDeck([], "Vendas", 2);
+  assert.equal(out.ok, false);
+  assert.match(out.error, /never identified/);
+});
+
+test("with zero unidentified the plain no-decks message is unchanged", () => {
+  const out = resolveTarget([], undefined, null, 0);
+  assert.match(out.error, /Open the 'Claude Code Slides' plugin/);
+  assert.doesNotMatch(out.error, /never identified/);
 });

@@ -35,6 +35,11 @@ export interface CommandMessage {
 export interface TargetsMessage {
   type: "targets";
   targets: TargetInfo[];
+  /**
+   * Clients that opened a socket and never sent a `hello`. A pre-2.0 plugin
+   * does exactly this, and without counting it the bridge looks simply empty.
+   */
+  unidentified?: number;
 }
 
 export interface ResponseMessage {

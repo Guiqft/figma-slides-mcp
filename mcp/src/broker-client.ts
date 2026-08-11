@@ -38,6 +38,7 @@ export class BrokerClient {
   private ws: WebSocket | null = null;
   private connected = false;
   private targets: TargetInfo[] = [];
+  private unidentified = 0;
   private pending = new Map<string, Pending>();
   private reconnectDelay = RECONNECT_MIN_MS;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -60,6 +61,11 @@ export class BrokerClient {
 
   getTargets(): TargetInfo[] {
     return this.targets;
+  }
+
+  /** Clients on the bridge that never sent a `hello` — i.e. outdated plugins. */
+  getUnidentifiedCount(): number {
+    return this.unidentified;
   }
 
   async ready(timeoutMs: number): Promise<boolean> {
@@ -148,6 +154,7 @@ export class BrokerClient {
       this.ws = null;
       this.connected = false;
       this.targets = [];
+      this.unidentified = 0;
       this.rejectAll("Lost the connection to the figma-slides broker");
       this.scheduleReconnect();
     });
@@ -196,6 +203,7 @@ export class BrokerClient {
 
     if (msg.type === "targets" && Array.isArray(msg.targets)) {
       this.targets = msg.targets;
+      this.unidentified = typeof msg.unidentified === "number" ? msg.unidentified : 0;
       this.connected = true;
       return;
     }
