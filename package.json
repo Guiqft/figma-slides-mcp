@@ -14,6 +14,7 @@
   "scripts": {
     "build:mcp": "node mcp/build.mjs",
     "dev:mcp": "node mcp/build.mjs --watch",
+    "test": "npm run build:mcp && node --test \"mcp/test/*.test.mjs\"",
     "prepublishOnly": "npm run build:mcp"
   },
   "keywords": [
