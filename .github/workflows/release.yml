@@ -14,18 +14,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Node 22+: the `npm install -g npm@latest` below needs it. npm 12 dropped
-      # Node 20 (engines ^22.22.2 || ^24.15.0 || >=26.0.0).
+      # Node 22+: the test runner selects the suite with a glob, supported from
+      # 22 on.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
-      - run: npm install -g npm@latest
+      # The runner's bundled npm predates OIDC trusted publishing, so it has to
+      # be upgraded. Pinned to the 11 line rather than @latest: chasing @latest
+      # ties releases to npm's engine churn, and npm 12 dropping Node 20 already
+      # broke this job once.
+      - run: npm install -g npm@11
 
       - run: npm ci
 
       - run: npm run build:mcp
+
+      # A tag can otherwise publish without ever running the suite — ci.yml only
+      # covers pull requests and pushes to main.
+      - run: npm test
 
       - name: Zip Figma plugin
         run: cd mcp/dist/figma-plugin && zip -r ../../../figma-plugin.zip .
