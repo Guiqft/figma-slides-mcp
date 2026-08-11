@@ -9,6 +9,22 @@ export type ResolveOutcome = { ok: true; connId: string } | { ok: false; error: 
 export const NO_DECKS_ERROR =
   "No Figma deck is connected. Open the 'Claude Code Slides' plugin in Figma Slides (Plugins > Development).";
 
+/**
+ * A pre-2.0 plugin connects and never sends a `hello`, so the bridge looks
+ * empty while the user is staring at a running plugin. Say so instead of
+ * telling them to open something that is already open.
+ */
+export function noDecksError(unidentifiedCount = 0): string {
+  if (unidentifiedCount <= 0) return NO_DECKS_ERROR;
+  const plural = unidentifiedCount === 1 ? "client" : "clients";
+  return (
+    `No Figma deck is connected, but ${unidentifiedCount} ${plural} on the bridge never identified ` +
+    `themselves — almost certainly an outdated 'Claude Code Slides' plugin. Reload the plugin in Figma ` +
+    `(Plugins > Development) using the build shipped with the installed server version; the plugin and ` +
+    `server must match.`
+  );
+}
+
 export function shortId(connId: string): string {
   return connId.slice(0, 8);
 }
@@ -17,8 +33,12 @@ export function formatCandidates(targets: TargetInfo[]): string {
   return targets.map((t) => `  - "${t.docName}" (${shortId(t.connId)})`).join("\n");
 }
 
-export function matchDeck(targets: TargetInfo[], deck: string): ResolveOutcome {
-  if (targets.length === 0) return { ok: false, error: NO_DECKS_ERROR };
+export function matchDeck(
+  targets: TargetInfo[],
+  deck: string,
+  unidentifiedCount = 0
+): ResolveOutcome {
+  if (targets.length === 0) return { ok: false, error: noDecksError(unidentifiedCount) };
 
   const needle = deck.trim();
   const exact = targets.find((t) => t.connId === needle);
@@ -48,10 +68,11 @@ export function matchDeck(targets: TargetInfo[], deck: string): ResolveOutcome {
 export function resolveTarget(
   targets: TargetInfo[],
   explicitDeck: string | undefined,
-  pinnedConnId: string | null
+  pinnedConnId: string | null,
+  unidentifiedCount = 0
 ): ResolveOutcome {
-  if (explicitDeck) return matchDeck(targets, explicitDeck);
-  if (targets.length === 0) return { ok: false, error: NO_DECKS_ERROR };
+  if (explicitDeck) return matchDeck(targets, explicitDeck, unidentifiedCount);
+  if (targets.length === 0) return { ok: false, error: noDecksError(unidentifiedCount) };
   if (pinnedConnId && targets.some((t) => t.connId === pinnedConnId)) {
     return { ok: true, connId: pinnedConnId };
   }

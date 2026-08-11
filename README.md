@@ -106,6 +106,20 @@ Any MCP-compatible client can use figma-slides-mcp:
 4. Select the `manifest.json` from the unzipped folder
 5. Run the plugin — it connects to the MCP server via WebSocket on port 3055
 
+### Updating
+
+The MCP server updates itself: `npx` re-resolves `latest` on the next start, so
+restarting your AI assistant is enough.
+
+**The plugin does not.** It lives on your disk and the server cannot update it.
+Since 2.0.0 the plugin and server speak a versioned protocol, so an outdated
+plugin will not register — download the current `figma-plugin.zip`, overwrite
+the folder you imported from, and re-run the plugin in Figma. The `manifest.json`
+has not changed, so re-importing is only needed if the folder moves.
+
+If the plugin is running but the tools report no deck connected, that is exactly
+this mismatch — the error will say so and count the unidentified clients.
+
 ## MCP Tools
 
 Every tool below takes an optional `deck` — a `connId` from `list_decks`, a
