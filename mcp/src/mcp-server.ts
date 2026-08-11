@@ -66,7 +66,7 @@ function jsonResult(value: unknown) {
 
 const server = new McpServer({
   name: "figma-slides",
-  version: "2.0.0",
+  version: "2.0.1",
   description: `Control the currently open Figma Slides presentation. No file URL needed — the plugin auto-connects via WebSocket.
 
 IMPORTANT — slide indexing is 0-based:
