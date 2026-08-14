@@ -8,7 +8,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod"
 import { BrokerClient } from "./broker-client"
-import { matchDeck, resolveTarget, shortId } from "./target-resolver"
+import { legacyNotice, matchDeck, resolveTarget, shortId } from "./target-resolver"
 import { DEFAULT_BROKER_PORT } from "./protocol"
 
 const COMMAND_TIMEOUT_MS = 30_000
@@ -58,8 +58,18 @@ async function run<T>(
   return (await client.send(target, command, params, timeoutMs)) as T
 }
 
-function jsonResult(value: unknown) {
-  return { content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) ?? "OK" }] }
+function jsonResult(value: unknown, notices: string[] = []) {
+  return {
+    content: [
+      ...notices.map((text) => ({ type: "text" as const, text })),
+      { type: "text" as const, text: JSON.stringify(value, null, 2) ?? "OK" },
+    ],
+  }
+}
+
+function legacyNotices(connId?: string): string[] {
+  const targets = client.getTargets().filter((t) => !connId || t.connId === connId)
+  return targets.map(legacyNotice).filter((notice): notice is string => notice !== null)
 }
 
 // ── MCP Server ───────────────────────────────────────────
@@ -92,7 +102,7 @@ const deckParam = z
 
 server.tool(
   "list_decks",
-  "List the Figma decks currently connected to the bridge. Each entry has connId (routing key), docName (the Figma file name), editorType, and isPinned. Use this when a tool reports an ambiguous target.",
+  "List the Figma decks currently connected to the bridge. Each entry has connId (routing key), docName (the Figma file name), editorType, isPinned, and legacy (true when the deck runs a pre-2.0 plugin and is served through the compatibility path). Use this when a tool reports an ambiguous target.",
   {},
   async () => {
     if (!(await client.ready(READY_TIMEOUT_MS))) return errorResult(client.connectionHint())
@@ -101,8 +111,9 @@ server.tool(
       docName: t.docName,
       editorType: t.editorType,
       isPinned: t.connId === pinnedConnId,
+      legacy: t.legacy,
     }))
-    return jsonResult(decks)
+    return jsonResult(decks, legacyNotices())
   }
 )
 
@@ -117,12 +128,14 @@ server.tool(
     if (!outcome.ok) return errorResult(outcome.error)
     pinnedConnId = outcome.connId
     const target = targets.find((t) => t.connId === outcome.connId)!
+    const notice = legacyNotice(target)
     return {
       content: [
         {
           type: "text" as const,
           text: `Pinned "${target.docName}" (${shortId(target.connId)}) as this session's deck.`,
         },
+        ...(notice ? [{ type: "text" as const, text: notice }] : []),
       ],
     }
   }
@@ -143,11 +156,13 @@ server.tool(
 
 server.tool(
   "ping",
-  "Check if the Figma plugin is connected and responding. Returns slide count and timestamp. Use this to diagnose connection issues.",
+  "Check if the Figma plugin is connected and responding. Returns slide count and timestamp, and flags a deck still running a pre-2.0 plugin. Use this to diagnose connection issues.",
   { deck: deckParam },
   async (params) => {
     try {
-      return jsonResult(await run(params.deck, "ping", {}, 5_000))
+      const target = await resolveDeck(params.deck)
+      const data = await client.send(target, "ping", {}, 5_000)
+      return jsonResult(data, legacyNotices(target))
     } catch (err: any) {
       return errorResult(err.message)
     }

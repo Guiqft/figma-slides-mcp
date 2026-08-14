@@ -8,12 +8,17 @@ function waitForUnidentified(ws, count, timeoutMs = 3000) {
 }
 
 test("a client that never says hello is reported as unidentified", async (t) => {
-  const broker = await startBroker({ port: 0, pingIntervalMs: 60_000, identifyGraceMs: 80 });
+  const broker = await startBroker({
+    port: 0,
+    pingIntervalMs: 60_000,
+    identifyGraceMs: 80,
+    legacyProbeMs: 80,
+  });
   t.after(() => broker.close());
 
   const controller = await helloController(broker.port);
 
-  // The 1.x plugin opened the socket and went straight to waiting for commands.
+  // Neither a hello nor an answer to the legacy probe — this is not a plugin.
   const outdated = await connectRaw(broker.port);
   const reported = await waitForUnidentified(controller, 1);
 
@@ -28,7 +33,12 @@ test("a client that never says hello is reported as unidentified", async (t) => 
 });
 
 test("a plugin that says hello in time is never counted as unidentified", async (t) => {
-  const broker = await startBroker({ port: 0, pingIntervalMs: 60_000, identifyGraceMs: 80 });
+  const broker = await startBroker({
+    port: 0,
+    pingIntervalMs: 60_000,
+    identifyGraceMs: 80,
+    legacyProbeMs: 80,
+  });
   t.after(() => broker.close());
 
   const controller = await helloController(broker.port);

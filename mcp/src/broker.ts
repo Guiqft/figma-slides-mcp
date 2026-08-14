@@ -9,7 +9,14 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-import { DEFAULT_BROKER_PORT, PROTOCOL_VERSION, type TargetInfo } from "./protocol";
+import {
+  DEFAULT_BROKER_PORT,
+  LEGACY_DOC_NAME,
+  LEGACY_PROBE_CODE,
+  LEGACY_PROBE_COMMAND,
+  PROTOCOL_VERSION,
+  type TargetInfo,
+} from "./protocol";
 
 export interface BrokerOptions {
   port?: number;
@@ -17,6 +24,7 @@ export interface BrokerOptions {
   maxMissedPongs?: number;
   idleShutdownMs?: number;
   identifyGraceMs?: number;
+  legacyProbeMs?: number;
   onIdleShutdown?: () => void;
 }
 
@@ -30,6 +38,7 @@ interface PluginConn {
   ws: WebSocket;
   docName: string;
   editorType: string;
+  legacy?: boolean;
 }
 
 interface Route {
@@ -44,6 +53,7 @@ export function startBroker(options: BrokerOptions = {}): Promise<BrokerHandle> 
   const maxMissedPongs = options.maxMissedPongs ?? 2;
   const idleShutdownMs = options.idleShutdownMs ?? 30 * 60_000;
   const identifyGraceMs = options.identifyGraceMs ?? 5_000;
+  const legacyProbeMs = options.legacyProbeMs ?? 2_500;
   const onIdleShutdown = options.onIdleShutdown ?? (() => process.exit(0));
 
   const plugins = new Map<string, PluginConn>();
@@ -66,6 +76,7 @@ export function startBroker(options: BrokerOptions = {}): Promise<BrokerHandle> 
       connId: p.connId,
       docName: p.docName,
       editorType: p.editorType,
+      legacy: p.legacy,
     }));
   }
 
@@ -78,19 +89,51 @@ export function startBroker(options: BrokerOptions = {}): Promise<BrokerHandle> 
     for (const ws of controllers.values()) send(ws, msg);
   }
 
+  /** Reject only this target's in-flight work. A second deck's commands keep flying. */
+  function failRoutesTo(connId: string, error: string): void {
+    for (const [wireId, route] of [...routes]) {
+      if (route.target !== connId) continue;
+      routes.delete(wireId);
+      const controller = controllers.get(route.controllerId);
+      if (controller) {
+        send(controller, { type: "error", id: route.replyId, code: "target_disconnected", error });
+      }
+    }
+  }
+
   const wss = new WebSocketServer({ port });
 
   wss.on("connection", (ws) => {
     missedPongs.set(ws, 0);
     lastActive = Date.now();
     let identity: { role: "plugin" | "controller"; connId: string } | null = null;
+    let probeId: string | null = null;
+    let probeTimer: ReturnType<typeof setTimeout> | null = null;
 
     const graceTimer = setTimeout(() => {
       if (identity) return;
-      unidentified.add(ws);
-      broadcastTargets();
+      probeId = `__legacy_probe_${++wireCounter}`;
+      send(ws, { id: probeId, command: LEGACY_PROBE_COMMAND, params: { code: LEGACY_PROBE_CODE } });
+      // A late answer still counts, so probeId outlives this timer.
+      probeTimer = setTimeout(() => {
+        if (identity) return;
+        unidentified.add(ws);
+        broadcastTargets();
+      }, legacyProbeMs);
+      probeTimer.unref?.();
     }, identifyGraceMs);
     graceTimer.unref?.();
+
+    function registerLegacyPlugin(docName: string): void {
+      if (probeTimer) clearTimeout(probeTimer);
+      probeTimer = null;
+      probeId = null;
+      const connId = randomUUID();
+      identity = { role: "plugin", connId };
+      plugins.set(connId, { connId, ws, docName, editorType: "slides", legacy: true });
+      unidentified.delete(ws);
+      broadcastTargets();
+    }
 
     ws.on("pong", () => missedPongs.set(ws, 0));
     ws.on("error", () => {
@@ -106,7 +149,23 @@ export function startBroker(options: BrokerOptions = {}): Promise<BrokerHandle> 
       }
       if (!msg || typeof msg !== "object") return;
 
+      if (probeId && msg.id === probeId && !msg.type) {
+        registerLegacyPlugin(
+          msg.success === true && typeof msg.data === "string" && msg.data
+            ? msg.data
+            : LEGACY_DOC_NAME
+        );
+        return;
+      }
+
       if (msg.type === "hello") {
+        // A 2.x plugin whose hello lost the race with the probe is registered as
+        // a stand-in legacy deck. Drop that entry and let it identify properly.
+        if (identity?.role === "plugin" && plugins.get(identity.connId)?.legacy) {
+          plugins.delete(identity.connId);
+          failRoutesTo(identity.connId, "The deck re-identified itself; resend the command.");
+          identity = null;
+        }
         if (identity) return;
         if (msg.protocol !== PROTOCOL_VERSION) {
           send(ws, { type: "error", code: "protocol_mismatch", brokerProtocol: PROTOCOL_VERSION });
@@ -180,21 +239,10 @@ export function startBroker(options: BrokerOptions = {}): Promise<BrokerHandle> 
       }
       if (identity.role === "plugin") {
         plugins.delete(identity.connId);
-        // Reject only this target's in-flight work. A second deck's commands
-        // keep flying.
-        for (const [wireId, route] of [...routes]) {
-          if (route.target !== identity.connId) continue;
-          routes.delete(wireId);
-          const controller = controllers.get(route.controllerId);
-          if (controller) {
-            send(controller, {
-              type: "error",
-              id: route.replyId,
-              code: "target_disconnected",
-              error: "The Figma plugin for this deck disconnected before answering.",
-            });
-          }
-        }
+        failRoutesTo(
+          identity.connId,
+          "The Figma plugin for this deck disconnected before answering."
+        );
         broadcastTargets();
       } else {
         controllers.delete(identity.connId);

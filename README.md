@@ -112,13 +112,25 @@ The MCP server updates itself: `npx` re-resolves `latest` on the next start, so
 restarting your AI assistant is enough.
 
 **The plugin does not.** It lives on your disk and the server cannot update it.
-Since 2.0.0 the plugin and server speak a versioned protocol, so an outdated
-plugin will not register — download the current `figma-plugin.zip`, overwrite
-the folder you imported from, and re-run the plugin in Figma. The `manifest.json`
-has not changed, so re-importing is only needed if the folder moves.
+Since 2.0.0 the plugin and server speak a versioned protocol, and 2.0.0–2.0.1
+refused any plugin that did not speak it: the tools reported no deck connected
+while the plugin sat there showing "Connected".
 
-If the plugin is running but the tools report no deck connected, that is exactly
-this mismatch — the error will say so and count the unidentified clients.
+From 2.1.0 the broker probes a silent socket instead of writing it off, so a
+pre-2.0 plugin keeps working — it is registered as a deck, `list_decks` marks it
+`legacy: true`, and the tools attach the update steps. Update it anyway: that
+build reconnects from a timer Figma throttles in hidden iframes, so it can stay
+dark after the broker restarts.
+
+To update: download the current
+[`figma-plugin.zip`](https://github.com/Guiqft/figma-slides-mcp/releases/latest/download/figma-plugin.zip),
+unzip it over the folder you imported from, and re-run the plugin in Figma. The
+`manifest.json` has not changed since 1.x, so re-importing is only needed if that
+folder moved.
+
+If the tools still report no deck connected and count unidentified clients,
+something that is not a plugin is holding port 3055 — most often an older
+figma-slides-mcp from before the broker.
 
 ## MCP Tools
 
@@ -129,7 +141,8 @@ deck is connected.
 ### `list_decks`
 
 List the Figma decks currently connected, with `connId` (routing key), `docName`
-(the Figma file name), `editorType`, and `isPinned`.
+(the Figma file name), `editorType`, `isPinned`, and `legacy` (set when the deck
+runs a pre-2.0 plugin served through the compatibility path).
 
 ### `use_deck`
 

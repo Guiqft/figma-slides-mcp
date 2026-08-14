@@ -8,7 +8,21 @@ export interface TargetInfo {
   connId: string;
   docName: string;
   editorType: string;
+  /** Registered through the legacy probe below rather than a `hello`. */
+  legacy?: boolean;
 }
+
+/**
+ * Pre-2.0 plugins never send a `hello` — they open the socket and wait for
+ * `{id, command, params}`. So the broker asks: any answer carrying the probe id
+ * identifies the socket as a plugin, and a 1.x `execute` hands back the file
+ * name a `hello` would have carried. This is the one place the broker knows a
+ * command name, and it is the price of not breaking every deck installed
+ * before 2.0.
+ */
+export const LEGACY_PROBE_COMMAND = "execute";
+export const LEGACY_PROBE_CODE = "return figma.root.name";
+export const LEGACY_DOC_NAME = "Untitled (legacy plugin)";
 
 export interface PluginHello {
   type: "hello";

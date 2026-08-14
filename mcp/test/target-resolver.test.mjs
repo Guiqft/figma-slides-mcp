@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolveTarget, matchDeck, shortId, noDecksError } from "../dist/target-resolver.mjs";
+import {
+  resolveTarget,
+  matchDeck,
+  shortId,
+  noDecksError,
+  legacyNotice,
+} from "../dist/target-resolver.mjs";
 
 const A = { connId: "a3f1aaaa-1111-4111-8111-111111111111", docName: "Deck de Vendas", editorType: "slides" };
 const B = { connId: "b7c2bbbb-2222-4222-8222-222222222222", docName: "Deck de Produto", editorType: "slides" };
@@ -91,6 +97,28 @@ test("matchDeck also blames the outdated plugin when nothing is connected", () =
   const out = matchDeck([], "Vendas", 2);
   assert.equal(out.ok, false);
   assert.match(out.error, /never identified/);
+});
+
+test("the outdated-plugin message carries the download URL and the update steps", () => {
+  const out = resolveTarget([], undefined, null, 1);
+  assert.match(out.error, /releases\/latest\/download\/figma-plugin\.zip/);
+  assert.match(out.error, /unzip/i, "it says what to do with the download");
+  assert.match(
+    out.error,
+    /manifest\.json has not changed/i,
+    "re-importing the plugin is not part of the fix"
+  );
+});
+
+test("a legacy deck carries a notice with the update steps", () => {
+  const notice = legacyNotice({ ...A, legacy: true });
+  assert.match(notice, /Deck de Vendas/, "it names the deck the user is looking at");
+  assert.match(notice, /pre-2\.0/);
+  assert.match(notice, /figma-plugin\.zip/);
+});
+
+test("a deck on the current plugin has no notice", () => {
+  assert.equal(legacyNotice(A), null);
 });
 
 test("with zero unidentified the plain no-decks message is unchanged", () => {
