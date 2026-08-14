@@ -76,7 +76,7 @@ function legacyNotices(connId?: string): string[] {
 
 const server = new McpServer({
   name: "figma-slides",
-  version: "2.0.1",
+  version: "2.1.0",
   description: `Control the currently open Figma Slides presentation. No file URL needed — the plugin auto-connects via WebSocket.
 
 IMPORTANT — slide indexing is 0-based:
