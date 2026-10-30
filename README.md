@@ -125,6 +125,12 @@ pre-2.0 plugin keeps working — it is registered as a deck, `list_decks` marks 
 build reconnects from a timer Figma throttles in hidden iframes, so it can stay
 dark after the broker restarts.
 
+From 2.2.0 the plugin reports its version and a fingerprint of its sources, and
+the server compares that fingerprint with the plugin it was built with. A deck
+on a different plugin gets a notice with the update steps in `list_decks`,
+`use_deck` and `ping`, and on any command that fails, typically "Unknown
+command". A server release that leaves the plugin unchanged asks nothing of you.
+
 To update: download the current
 [`figma-plugin.zip`](https://github.com/Guiqft/figma-slides-mcp/releases/latest/download/figma-plugin.zip),
 unzip it over the folder you imported from, and re-run the plugin in Figma. The
@@ -144,8 +150,10 @@ deck is connected.
 ### `list_decks`
 
 List the Figma decks currently connected, with `connId` (routing key), `docName`
-(the Figma file name), `editorType`, `isPinned`, and `legacy` (set when the deck
-runs a pre-2.0 plugin served through the compatibility path).
+(the Figma file name), `editorType`, `isPinned`, `pluginVersion` (absent before
+2.2.0), and `legacy` (set when the deck runs a pre-2.0 plugin served through the
+compatibility path). A deck whose plugin differs from the one the server ships
+comes with a notice and the update steps.
 
 ### `use_deck`
 
