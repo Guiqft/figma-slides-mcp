@@ -5,7 +5,6 @@ MCP server + Figma plugin for controlling Figma Slides from any MCP-compatible A
 ## Architecture
 
 - **`mcp/`** — MCP server and Figma plugin source. A broker daemon (`mcp/dist/broker.mjs`) owns WebSocket `:3055` and forwards addressed envelopes between MCP servers and Figma plugin instances. The MCP server is a client of that broker and starts it on demand, so it survives MCP client restarts and can address several decks at once.
-- **`assets/`** — Logos, fonts, and images available for use in slides.
 
 ## Important: Figma Slides API Gotchas
 
