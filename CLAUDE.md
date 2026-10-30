@@ -18,7 +18,7 @@ The `figma-slides` MCP server requires the "Claude Code Slides" plugin running i
 `update_text`, `duplicate_slide`, `screenshot_slide`, `screenshot_presentation`
 — all take an optional `deck`. Plus:
 
-- `list_decks` — List connected Figma decks (`connId`, `docName`, `editorType`, `isPinned`)
+- `list_decks` — List connected Figma decks (`connId`, `docName`, `editorType`, `isPinned`, `pluginVersion`)
 - `use_deck` — Pin one deck as the session target (accepts a connId or a file-name fragment)
 
 With one deck connected, `deck` is unnecessary. With two or more and no pinned
