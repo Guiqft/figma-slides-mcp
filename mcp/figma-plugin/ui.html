@@ -54,6 +54,8 @@
               protocol: PROTOCOL,
               docName: identity.docName,
               editorType: identity.editorType,
+              pluginVersion: identity.pluginVersion,
+              pluginBuild: identity.pluginBuild,
             }),
           );
         };
@@ -88,7 +90,12 @@
         const msg = event.data && event.data.pluginMessage;
         if (!msg) return;
         if (msg.type === "identity") {
-          identity = { docName: msg.docName, editorType: msg.editorType };
+          identity = {
+            docName: msg.docName,
+            editorType: msg.editorType,
+            pluginVersion: msg.pluginVersion,
+            pluginBuild: msg.pluginBuild,
+          };
           connect();
           return;
         }

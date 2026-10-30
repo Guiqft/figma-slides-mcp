@@ -8,12 +8,15 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { BrokerClient } from "./broker-client";
-import { legacyNotice, matchDeck, resolveTarget, shortId } from "./target-resolver";
+import { matchDeck, pluginNotice, resolveTarget, shortId } from "./target-resolver";
 import { DEFAULT_BROKER_PORT } from "./protocol";
 
-// Injected by mcp/build.mjs from package.json, so the version the server reports
-// can't drift from the published one.
+// Injected by mcp/build.mjs: the package.json version, so the version the server
+// reports can't drift from the published one, and the fingerprint of the plugin
+// sources this server ships with, to spot decks running a different plugin.
 declare const __PKG_VERSION__: string;
+declare const __PLUGIN_BUILD__: string;
+const SHIPPED_PLUGIN = { version: __PKG_VERSION__, build: __PLUGIN_BUILD__ };
 
 const COMMAND_TIMEOUT_MS = 30_000;
 const READY_TIMEOUT_MS = 5_000;
@@ -59,7 +62,13 @@ async function run<T>(
   timeoutMs?: number,
 ): Promise<T> {
   const target = await resolveDeck(deck);
-  return (await client.send(target, command, params, timeoutMs)) as T;
+  try {
+    return (await client.send(target, command, params, timeoutMs)) as T;
+  } catch (err: any) {
+    // An outdated plugin fails here, typically with "Unknown command". Say why.
+    const [notice] = pluginNotices(target);
+    throw notice ? new Error(`${err.message}\n\n${notice}`) : err;
+  }
 }
 
 function jsonResult(value: unknown, notices: string[] = []) {
@@ -71,9 +80,11 @@ function jsonResult(value: unknown, notices: string[] = []) {
   };
 }
 
-function legacyNotices(connId?: string): string[] {
+function pluginNotices(connId?: string): string[] {
   const targets = client.getTargets().filter((t) => !connId || t.connId === connId);
-  return targets.map(legacyNotice).filter((notice): notice is string => notice !== null);
+  return targets
+    .map((t) => pluginNotice(t, SHIPPED_PLUGIN))
+    .filter((notice): notice is string => notice !== null);
 }
 
 // ── MCP Server ───────────────────────────────────────────
@@ -106,7 +117,7 @@ const deckParam = z
 
 server.tool(
   "list_decks",
-  "List the Figma decks currently connected to the bridge. Each entry has connId (routing key), docName (the Figma file name), editorType, isPinned, and legacy (true when the deck runs a pre-2.0 plugin and is served through the compatibility path). Use this when a tool reports an ambiguous target.",
+  "List the Figma decks currently connected to the bridge. Each entry has connId (routing key), docName (the Figma file name), editorType, isPinned, pluginVersion (absent before 2.2.0), and legacy (true when the deck runs a pre-2.0 plugin and is served through the compatibility path). Decks whose plugin differs from the one this server ships come with a notice and the update steps. Use this when a tool reports an ambiguous target.",
   {},
   async () => {
     if (!(await client.ready(READY_TIMEOUT_MS))) return errorResult(client.connectionHint());
@@ -115,9 +126,10 @@ server.tool(
       docName: t.docName,
       editorType: t.editorType,
       isPinned: t.connId === pinnedConnId,
+      pluginVersion: t.pluginVersion,
       legacy: t.legacy,
     }));
-    return jsonResult(decks, legacyNotices());
+    return jsonResult(decks, pluginNotices());
   },
 );
 
@@ -132,7 +144,7 @@ server.tool(
     if (!outcome.ok) return errorResult(outcome.error);
     pinnedConnId = outcome.connId;
     const target = targets.find((t) => t.connId === outcome.connId)!;
-    const notice = legacyNotice(target);
+    const notice = pluginNotice(target, SHIPPED_PLUGIN);
     return {
       content: [
         {
@@ -160,13 +172,13 @@ server.tool(
 
 server.tool(
   "ping",
-  "Check if the Figma plugin is connected and responding. Returns slide count and timestamp, and flags a deck still running a pre-2.0 plugin. Use this to diagnose connection issues.",
+  "Check if the Figma plugin is connected and responding. Returns slide count and timestamp, and flags a deck running an outdated plugin. Use this to diagnose connection issues.",
   { deck: deckParam },
   async (params) => {
     try {
       const target = await resolveDeck(params.deck);
       const data = await client.send(target, "ping", {}, 5_000);
-      return jsonResult(data, legacyNotices(target));
+      return jsonResult(data, pluginNotices(target));
     } catch (err: any) {
       return errorResult(err.message);
     }

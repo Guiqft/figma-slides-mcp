@@ -67,9 +67,9 @@ export function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function helloPlugin(port, docName, editorType = "slides", opts = {}) {
+export async function helloPlugin(port, docName, editorType = "slides", opts = {}, extra = {}) {
   const ws = await connectRaw(port, opts);
-  send(ws, { type: "hello", role: "plugin", protocol: PROTOCOL, docName, editorType });
+  send(ws, { type: "hello", role: "plugin", protocol: PROTOCOL, docName, editorType, ...extra });
   return ws;
 }
 

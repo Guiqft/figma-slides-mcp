@@ -6,6 +6,8 @@ import {
   shortId,
   noDecksError,
   legacyNotice,
+  pluginNotice,
+  compareVersions,
 } from "../dist/target-resolver.mjs";
 
 const A = {
@@ -137,4 +139,68 @@ test("with zero unidentified the plain no-decks message is unchanged", () => {
   const out = resolveTarget([], undefined, null, 0);
   assert.match(out.error, /Open the 'Claude Code Slides' plugin/);
   assert.doesNotMatch(out.error, /never identified/);
+});
+
+const SHIPPED = { version: "2.2.0", build: "aaaaaaaaaaaa" };
+
+test("compareVersions orders x.y.z numerically", () => {
+  assert.ok(compareVersions("2.10.0", "2.9.0") > 0, "not a string comparison");
+  assert.ok(compareVersions("2.1.9", "2.2.0") < 0);
+  assert.equal(compareVersions("2.2.0", "2.2.0"), 0);
+  assert.equal(compareVersions("2.2.0-beta.1", "2.2.0"), 0, "prerelease tags are ignored");
+});
+
+test("a plugin with the shipped build has no notice, whatever its version says", () => {
+  assert.equal(
+    pluginNotice({ ...A, pluginVersion: "2.2.0", pluginBuild: SHIPPED.build }, SHIPPED),
+    null,
+  );
+  // A server release that left the plugin alone: the 2.2.0 plugin is still current.
+  const later = { version: "2.3.1", build: SHIPPED.build };
+  assert.equal(
+    pluginNotice({ ...A, pluginVersion: "2.2.0", pluginBuild: SHIPPED.build }, later),
+    null,
+  );
+});
+
+test("a plugin from before version reporting is outdated", () => {
+  const notice = pluginNotice(A, SHIPPED);
+  assert.match(notice, /Deck de Vendas/);
+  assert.match(notice, /2\.1 or earlier/);
+  assert.match(notice, /figma-plugin\.zip/);
+});
+
+test("an older plugin build is outdated and names both versions", () => {
+  const notice = pluginNotice(
+    { ...A, pluginVersion: "2.2.0", pluginBuild: "bbbbbbbbbbbb" },
+    {
+      version: "2.4.0",
+      build: "cccccccccccc",
+    },
+  );
+  assert.match(notice, /outdated/);
+  assert.match(notice, /2\.2\.0; this server ships 2\.4\.0/);
+  assert.match(notice, /figma-plugin\.zip/);
+});
+
+test("a plugin newer than the server asks for a restart, not a plugin update", () => {
+  const notice = pluginNotice(
+    { ...A, pluginVersion: "2.5.0", pluginBuild: "bbbbbbbbbbbb" },
+    SHIPPED,
+  );
+  assert.match(notice, /newer than this server/);
+  assert.match(notice, /Restart your AI assistant/);
+  assert.doesNotMatch(notice, /figma-plugin\.zip/);
+});
+
+test("same version, different build is called out as a local or modified build", () => {
+  const notice = pluginNotice(
+    { ...A, pluginVersion: "2.2.0", pluginBuild: "bbbbbbbbbbbb" },
+    SHIPPED,
+  );
+  assert.match(notice, /local or modified build/);
+});
+
+test("a legacy deck keeps the legacy notice", () => {
+  assert.equal(pluginNotice({ ...A, legacy: true }, SHIPPED), legacyNotice({ ...A, legacy: true }));
 });
