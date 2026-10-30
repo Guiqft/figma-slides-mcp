@@ -56,12 +56,9 @@ function copyPluginFiles() {
   fs.mkdirSync(pluginDist, { recursive: true });
   fs.copyFileSync(
     path.join(__dirname, "figma-plugin/manifest.json"),
-    path.join(pluginDist, "manifest.json")
+    path.join(pluginDist, "manifest.json"),
   );
-  fs.copyFileSync(
-    path.join(__dirname, "figma-plugin/ui.html"),
-    path.join(pluginDist, "ui.html")
-  );
+  fs.copyFileSync(path.join(__dirname, "figma-plugin/ui.html"), path.join(pluginDist, "ui.html"));
   console.log("Copied plugin static files");
 }
 

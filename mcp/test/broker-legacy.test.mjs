@@ -81,7 +81,11 @@ test("a plugin too old to run the probe still registers, under a fallback name",
 
   const registered = await waitForTargets(controller, 1);
   assert.equal(registered.targets[0].legacy, true);
-  assert.match(registered.targets[0].docName, /legacy/i, "answering at all is enough to identify it");
+  assert.match(
+    registered.targets[0].docName,
+    /legacy/i,
+    "answering at all is enough to identify it",
+  );
 
   plugin.close();
   controller.close();
@@ -106,7 +110,7 @@ test("a 2.x plugin that says hello late replaces its legacy registration", async
 
   const upgraded = await nextMessage(
     controller,
-    (m) => m.type === "targets" && m.targets.some((target) => target.docName === "Deck Novo")
+    (m) => m.type === "targets" && m.targets.some((target) => target.docName === "Deck Novo"),
   );
   assert.equal(upgraded.targets.length, 1, "the legacy entry is gone, not duplicated");
   assert.equal(upgraded.targets[0].legacy, undefined);

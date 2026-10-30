@@ -8,9 +8,21 @@ import {
   legacyNotice,
 } from "../dist/target-resolver.mjs";
 
-const A = { connId: "a3f1aaaa-1111-4111-8111-111111111111", docName: "Deck de Vendas", editorType: "slides" };
-const B = { connId: "b7c2bbbb-2222-4222-8222-222222222222", docName: "Deck de Produto", editorType: "slides" };
-const B2 = { connId: "c9d3cccc-3333-4333-8333-333333333333", docName: "Deck de Produto", editorType: "slides" };
+const A = {
+  connId: "a3f1aaaa-1111-4111-8111-111111111111",
+  docName: "Deck de Vendas",
+  editorType: "slides",
+};
+const B = {
+  connId: "b7c2bbbb-2222-4222-8222-222222222222",
+  docName: "Deck de Produto",
+  editorType: "slides",
+};
+const B2 = {
+  connId: "c9d3cccc-3333-4333-8333-333333333333",
+  docName: "Deck de Produto",
+  editorType: "slides",
+};
 
 test("branch 1: explicit deck wins over the pinned target", () => {
   const out = resolveTarget([A, B], "Vendas", B.connId);
@@ -106,7 +118,7 @@ test("the outdated-plugin message carries the download URL and the update steps"
   assert.match(
     out.error,
     /manifest\.json has not changed/i,
-    "re-importing the plugin is not part of the fix"
+    "re-importing the plugin is not part of the fix",
   );
 });
 

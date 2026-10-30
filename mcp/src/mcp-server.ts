@@ -4,48 +4,48 @@
 // outlives this process, so restarting the MCP client no longer breaks the
 // bridge, and several decks can be connected at once.
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
-import { z } from "zod"
-import { BrokerClient } from "./broker-client"
-import { legacyNotice, matchDeck, resolveTarget, shortId } from "./target-resolver"
-import { DEFAULT_BROKER_PORT } from "./protocol"
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+import { BrokerClient } from "./broker-client";
+import { legacyNotice, matchDeck, resolveTarget, shortId } from "./target-resolver";
+import { DEFAULT_BROKER_PORT } from "./protocol";
 
 // Injected by mcp/build.mjs from package.json, so the version the server reports
 // can't drift from the published one.
-declare const __PKG_VERSION__: string
+declare const __PKG_VERSION__: string;
 
-const COMMAND_TIMEOUT_MS = 30_000
-const READY_TIMEOUT_MS = 5_000
+const COMMAND_TIMEOUT_MS = 30_000;
+const READY_TIMEOUT_MS = 5_000;
 
-const envPort = Number(process.env.FIGMA_SLIDES_BROKER_PORT)
+const envPort = Number(process.env.FIGMA_SLIDES_BROKER_PORT);
 const client = new BrokerClient({
   port: Number.isFinite(envPort) && envPort > 0 ? envPort : DEFAULT_BROKER_PORT,
   commandTimeoutMs: COMMAND_TIMEOUT_MS,
   log: (msg) => console.error(`[figma-slides-mcp] ${msg}`),
-})
+});
 
-let pinnedConnId: string | null = null
+let pinnedConnId: string | null = null;
 
 function errorResult(message: string) {
   return {
     content: [{ type: "text" as const, text: `Error: ${message}` }],
     isError: true,
-  }
+  };
 }
 
 async function resolveDeck(deck?: string): Promise<string> {
   // A bridge that never came up is a different problem from "no deck open", and
   // the two errors send the user to completely different places.
-  if (!(await client.ready(READY_TIMEOUT_MS))) throw new Error(client.connectionHint())
+  if (!(await client.ready(READY_TIMEOUT_MS))) throw new Error(client.connectionHint());
   const outcome = resolveTarget(
     client.getTargets(),
     deck,
     pinnedConnId,
-    client.getUnidentifiedCount()
-  )
-  if (!outcome.ok) throw new Error(outcome.error)
-  return outcome.connId
+    client.getUnidentifiedCount(),
+  );
+  if (!outcome.ok) throw new Error(outcome.error);
+  return outcome.connId;
 }
 
 /**
@@ -56,10 +56,10 @@ async function run<T>(
   deck: string | undefined,
   command: string,
   params: Record<string, unknown>,
-  timeoutMs?: number
+  timeoutMs?: number,
 ): Promise<T> {
-  const target = await resolveDeck(deck)
-  return (await client.send(target, command, params, timeoutMs)) as T
+  const target = await resolveDeck(deck);
+  return (await client.send(target, command, params, timeoutMs)) as T;
 }
 
 function jsonResult(value: unknown, notices: string[] = []) {
@@ -68,12 +68,12 @@ function jsonResult(value: unknown, notices: string[] = []) {
       ...notices.map((text) => ({ type: "text" as const, text })),
       { type: "text" as const, text: JSON.stringify(value, null, 2) ?? "OK" },
     ],
-  }
+  };
 }
 
 function legacyNotices(connId?: string): string[] {
-  const targets = client.getTargets().filter((t) => !connId || t.connId === connId)
-  return targets.map(legacyNotice).filter((notice): notice is string => notice !== null)
+  const targets = client.getTargets().filter((t) => !connId || t.connId === connId);
+  return targets.map(legacyNotice).filter((notice): notice is string => notice !== null);
 }
 
 // ── MCP Server ───────────────────────────────────────────
@@ -95,44 +95,44 @@ IMPORTANT — preferred workflow:
 
 IMPORTANT — more than one deck can be connected:
 With a single deck open, ignore the \`deck\` parameter entirely. If a tool reports an ambiguous target, it will list the connected decks — match one against what the user is talking about, or ask them. Never guess: editing the wrong deck is silent damage. Pin a deck for the session with use_deck.`,
-})
+});
 
 const deckParam = z
   .string()
   .optional()
   .describe(
-    "Which connected deck to target: a connId from list_decks or part of the Figma file name. Defaults to the deck pinned with use_deck, or the only connected deck."
-  )
+    "Which connected deck to target: a connId from list_decks or part of the Figma file name. Defaults to the deck pinned with use_deck, or the only connected deck.",
+  );
 
 server.tool(
   "list_decks",
   "List the Figma decks currently connected to the bridge. Each entry has connId (routing key), docName (the Figma file name), editorType, isPinned, and legacy (true when the deck runs a pre-2.0 plugin and is served through the compatibility path). Use this when a tool reports an ambiguous target.",
   {},
   async () => {
-    if (!(await client.ready(READY_TIMEOUT_MS))) return errorResult(client.connectionHint())
+    if (!(await client.ready(READY_TIMEOUT_MS))) return errorResult(client.connectionHint());
     const decks = client.getTargets().map((t) => ({
       connId: t.connId,
       docName: t.docName,
       editorType: t.editorType,
       isPinned: t.connId === pinnedConnId,
       legacy: t.legacy,
-    }))
-    return jsonResult(decks, legacyNotices())
-  }
-)
+    }));
+    return jsonResult(decks, legacyNotices());
+  },
+);
 
 server.tool(
   "use_deck",
   "Pin one connected deck as the target for the rest of this session. Accepts a full connId, a connId prefix, or part of the deck's Figma file name. A connId changes whenever the plugin is relaunched, so prefer the file name.",
   { deck: z.string().describe("connId (full or prefix) or part of the deck's Figma file name") },
   async ({ deck }) => {
-    if (!(await client.ready(READY_TIMEOUT_MS))) return errorResult(client.connectionHint())
-    const targets = client.getTargets()
-    const outcome = matchDeck(targets, deck, client.getUnidentifiedCount())
-    if (!outcome.ok) return errorResult(outcome.error)
-    pinnedConnId = outcome.connId
-    const target = targets.find((t) => t.connId === outcome.connId)!
-    const notice = legacyNotice(target)
+    if (!(await client.ready(READY_TIMEOUT_MS))) return errorResult(client.connectionHint());
+    const targets = client.getTargets();
+    const outcome = matchDeck(targets, deck, client.getUnidentifiedCount());
+    if (!outcome.ok) return errorResult(outcome.error);
+    pinnedConnId = outcome.connId;
+    const target = targets.find((t) => t.connId === outcome.connId)!;
+    const notice = legacyNotice(target);
     return {
       content: [
         {
@@ -141,9 +141,9 @@ server.tool(
         },
         ...(notice ? [{ type: "text" as const, text: notice }] : []),
       ],
-    }
-  }
-)
+    };
+  },
+);
 
 server.tool(
   "get_styleguide",
@@ -151,12 +151,12 @@ server.tool(
   { deck: deckParam },
   async (params) => {
     try {
-      return jsonResult(await run(params.deck, "get_styleguide", {}, 30_000))
+      return jsonResult(await run(params.deck, "get_styleguide", {}, 30_000));
     } catch (err: any) {
-      return errorResult(err.message)
+      return errorResult(err.message);
     }
-  }
-)
+  },
+);
 
 server.tool(
   "ping",
@@ -164,14 +164,14 @@ server.tool(
   { deck: deckParam },
   async (params) => {
     try {
-      const target = await resolveDeck(params.deck)
-      const data = await client.send(target, "ping", {}, 5_000)
-      return jsonResult(data, legacyNotices(target))
+      const target = await resolveDeck(params.deck);
+      const data = await client.send(target, "ping", {}, 5_000);
+      return jsonResult(data, legacyNotices(target));
     } catch (err: any) {
-      return errorResult(err.message)
+      return errorResult(err.message);
     }
-  }
-)
+  },
+);
 
 server.tool(
   "execute",
@@ -191,12 +191,12 @@ Return a value and it will be sent back as the tool result. Keep output concise 
   },
   async (params) => {
     try {
-      return jsonResult(await run(params.deck, "execute", { code: params.code }))
+      return jsonResult(await run(params.deck, "execute", { code: params.code }));
     } catch (err: any) {
-      return errorResult(err.message)
+      return errorResult(err.message);
     }
-  }
-)
+  },
+);
 
 server.tool(
   "list_slides",
@@ -204,18 +204,22 @@ server.tool(
   { deck: deckParam },
   async (params) => {
     try {
-      return jsonResult(await run(params.deck, "list_slides", {}))
+      return jsonResult(await run(params.deck, "list_slides", {}));
     } catch (err: any) {
-      return errorResult(err.message)
+      return errorResult(err.message);
     }
-  }
-)
+  },
+);
 
 server.tool(
   "read_slide",
   "Read the full node tree of a single slide, including all nested children with their properties (text, fills, position, size). Use this to understand a slide's structure before editing.",
   {
-    slideIndex: z.number().int().min(0).describe("0-based slide index (user's 'slide 1' = index 0)"),
+    slideIndex: z
+      .number()
+      .int()
+      .min(0)
+      .describe("0-based slide index (user's 'slide 1' = index 0)"),
     depth: z.number().int().min(1).max(10).optional().describe("Max tree depth (default 5)"),
     deck: deckParam,
   },
@@ -224,13 +228,13 @@ server.tool(
       const result = await run(params.deck, "read_slide", {
         slideIndex: params.slideIndex,
         depth: params.depth,
-      })
-      return jsonResult(result)
+      });
+      return jsonResult(result);
     } catch (err: any) {
-      return errorResult(err.message)
+      return errorResult(err.message);
     }
-  }
-)
+  },
+);
 
 server.tool(
   "update_text",
@@ -238,13 +242,17 @@ server.tool(
 
 Matches text nodes by: (1) node name, (2) exact text content, or (3) text starting with the match string. Supports multiple updates in one call. Use list_slides or read_slide to find the current text, then match it here.`,
   {
-    slideIndex: z.number().int().min(0).describe("0-based slide index (user's 'slide 1' = index 0)"),
+    slideIndex: z
+      .number()
+      .int()
+      .min(0)
+      .describe("0-based slide index (user's 'slide 1' = index 0)"),
     updates: z
       .array(
         z.object({
           match: z.string().describe("Node name or text content to find"),
           newText: z.string().describe("New text to set"),
-        })
+        }),
       )
       .describe("Array of text updates to apply"),
     deck: deckParam,
@@ -254,13 +262,13 @@ Matches text nodes by: (1) node name, (2) exact text content, or (3) text starti
       const result = await run(params.deck, "update_text", {
         slideIndex: params.slideIndex,
         updates: params.updates,
-      })
-      return jsonResult(result)
+      });
+      return jsonResult(result);
     } catch (err: any) {
-      return errorResult(err.message)
+      return errorResult(err.message);
     }
-  }
-)
+  },
+);
 
 server.tool(
   "duplicate_slide",
@@ -275,13 +283,13 @@ server.tool(
   },
   async (params) => {
     try {
-      const result = await run(params.deck, "duplicate_slide", { sourceIndex: params.sourceIndex })
-      return jsonResult(result)
+      const result = await run(params.deck, "duplicate_slide", { sourceIndex: params.sourceIndex });
+      return jsonResult(result);
     } catch (err: any) {
-      return errorResult(err.message)
+      return errorResult(err.message);
     }
-  }
-)
+  },
+);
 
 server.tool(
   "screenshot_presentation",
@@ -299,26 +307,30 @@ server.tool(
         params.deck,
         "screenshot_presentation",
         { scale: params.scale },
-        120_000
-      )
+        120_000,
+      );
       return {
         content: results.map((r) => ({
           type: "image" as const,
           data: r.base64,
           mimeType: "image/png" as const,
         })),
-      }
+      };
     } catch (err: any) {
-      return errorResult(err.message)
+      return errorResult(err.message);
     }
-  }
-)
+  },
+);
 
 server.tool(
   "screenshot_slide",
   "Export a slide as a PNG screenshot from the currently open Figma Slides file. Returns base64-encoded image data. No URL needed — the plugin is already connected.",
   {
-    slideIndex: z.number().int().min(0).describe("0-based slide index (user's 'slide 1' = index 0)"),
+    slideIndex: z
+      .number()
+      .int()
+      .min(0)
+      .describe("0-based slide index (user's 'slide 1' = index 0)"),
     scale: z.number().optional().describe("Export scale (default 1, use 0.5 for thumbnails)"),
     deck: deckParam,
   },
@@ -327,8 +339,8 @@ server.tool(
       const result = await run<{ base64: string; format: string; slideIndex: number }>(
         params.deck,
         "screenshot_slide",
-        { slideIndex: params.slideIndex, scale: params.scale }
-      )
+        { slideIndex: params.slideIndex, scale: params.scale },
+      );
       return {
         content: [
           {
@@ -337,34 +349,34 @@ server.tool(
             mimeType: "image/png",
           },
         ],
-      }
+      };
     } catch (err: any) {
-      return errorResult(err.message)
+      return errorResult(err.message);
     }
-  }
-)
+  },
+);
 
 // ── Start ────────────────────────────────────────────────
 
 async function main() {
   // Connecting to (or spawning) the broker is deliberately not awaited: the MCP
   // server must come up healthy even when no broker is running yet.
-  client.start()
-  const transport = new StdioServerTransport()
-  await server.connect(transport)
-  console.error("[figma-slides-mcp] MCP server running on stdio")
+  client.start();
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  console.error("[figma-slides-mcp] MCP server running on stdio");
 
   // Exit when the parent process (Claude) closes the stdio pipe. The broker
   // stays up on purpose — that is what survives the restart.
   process.stdin.on("end", () => {
-    console.error("[figma-slides-mcp] stdin closed, shutting down")
-    client.close()
-    process.exit(0)
-  })
-  process.stdin.on("error", () => process.exit(0))
+    console.error("[figma-slides-mcp] stdin closed, shutting down");
+    client.close();
+    process.exit(0);
+  });
+  process.stdin.on("error", () => process.exit(0));
 }
 
 main().catch((err) => {
-  console.error("[figma-slides-mcp] Fatal:", err)
-  process.exit(1)
-})
+  console.error("[figma-slides-mcp] Fatal:", err);
+  process.exit(1);
+});

@@ -64,7 +64,7 @@ export function formatCandidates(targets: TargetInfo[]): string {
 export function matchDeck(
   targets: TargetInfo[],
   deck: string,
-  unidentifiedCount = 0
+  unidentifiedCount = 0,
 ): ResolveOutcome {
   if (targets.length === 0) return { ok: false, error: noDecksError(unidentifiedCount) };
 
@@ -97,7 +97,7 @@ export function resolveTarget(
   targets: TargetInfo[],
   explicitDeck: string | undefined,
   pinnedConnId: string | null,
-  unidentifiedCount = 0
+  unidentifiedCount = 0,
 ): ResolveOutcome {
   if (explicitDeck) return matchDeck(targets, explicitDeck, unidentifiedCount);
   if (targets.length === 0) return { ok: false, error: noDecksError(unidentifiedCount) };

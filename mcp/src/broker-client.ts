@@ -99,7 +99,7 @@ export class BrokerClient {
     target: string,
     command: string,
     params: Record<string, unknown>,
-    timeoutMs?: number
+    timeoutMs?: number,
   ): Promise<unknown> {
     if (this.protocolError) throw new Error(this.protocolError);
     const timeout = timeoutMs ?? this.commandTimeoutMs;
