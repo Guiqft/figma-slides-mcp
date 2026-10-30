@@ -53,6 +53,60 @@ export function legacyNotice(target: TargetInfo): string | null {
   );
 }
 
+/** The plugin this server was built with: its package version and source fingerprint. */
+export interface ShippedPlugin {
+  version: string;
+  build: string;
+}
+
+/** Numeric x.y.z comparison; anything after a `-` is ignored. Returns <0, 0 or >0. */
+export function compareVersions(a: string, b: string): number {
+  const parts = (v: string) =>
+    v
+      .split("-")[0]
+      .split(".")
+      .map((n) => Number(n) || 0);
+  const [pa, pb] = [parts(a), parts(b)];
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
+/**
+ * What, if anything, to tell the user about the plugin a deck is running. The
+ * fingerprint decides: a plugin whose sources match the shipped ones is current
+ * whatever its version, so a server release that leaves the plugin alone never
+ * asks anyone to unzip anything.
+ */
+export function pluginNotice(target: TargetInfo, shipped: ShippedPlugin): string | null {
+  if (target.legacy) return legacyNotice(target);
+  if (target.pluginBuild === shipped.build) return null;
+
+  const deck = `"${target.docName}"`;
+  const running = target.pluginVersion;
+  // Plugins before 2.2.0 report no version at all.
+  const order = running ? compareVersions(running, shipped.version) : -1;
+  if (order > 0) {
+    return (
+      `${deck} is running plugin ${running}, newer than this server (${shipped.version}). ` +
+      `Restart your AI assistant so npx fetches the latest figma-slides-mcp.`
+    );
+  }
+  if (order === 0) {
+    return (
+      `${deck} is running a plugin that differs from the one this server ships, though both say ` +
+      `${shipped.version} — a local or modified build. If you did not change it:\n\n${PLUGIN_UPDATE_STEPS}`
+    );
+  }
+  return (
+    `${deck} is running an outdated 'Claude Code Slides' plugin (${running ?? "2.1 or earlier"}; ` +
+    `this server ships ${shipped.version}). It still connects, but commands added or fixed since ` +
+    `may fail or behave differently.\n\n${PLUGIN_UPDATE_STEPS}`
+  );
+}
+
 export function shortId(connId: string): string {
   return connId.slice(0, 8);
 }

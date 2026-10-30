@@ -1,4 +1,5 @@
 import * as esbuild from "esbuild";
+import { createHash } from "crypto";
 import { builtinModules } from "module";
 import fs from "fs";
 import path from "path";
@@ -7,6 +8,24 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const watch = process.argv.includes("--watch");
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "../package.json"), "utf8"));
+
+// A fingerprint of the plugin sources, compiled into both the plugin and the
+// server. The server compares it with what each plugin reports, so it only asks
+// users to update the plugin when the plugin actually changed — not on every
+// release. code.ts imports nothing, so these three files are the whole plugin.
+const PLUGIN_BUILD = createHash("sha256")
+  .update(
+    ["figma-plugin/code.ts", "figma-plugin/ui.html", "figma-plugin/manifest.json"]
+      .map((file) => fs.readFileSync(path.join(__dirname, file)))
+      .join("\0"),
+  )
+  .digest("hex")
+  .slice(0, 12);
+
+const define = {
+  __PKG_VERSION__: JSON.stringify(pkg.version),
+  __PLUGIN_BUILD__: JSON.stringify(PLUGIN_BUILD),
+};
 
 // Every Node-side module is bundled on its own so the broker can be spawned
 // standalone and the tests can import the pure modules without booting a server.
@@ -19,7 +38,7 @@ function nodeBuild(entry, outfile) {
     format: "esm",
     outfile: path.join(__dirname, outfile),
     external: builtinModules.flatMap((m) => [m, `node:${m}`]),
-    define: { __PKG_VERSION__: JSON.stringify(pkg.version) },
+    define,
     banner: {
       js: [
         "#!/usr/bin/env node",
@@ -47,6 +66,7 @@ const pluginBuild = {
   target: "es2017",
   format: "iife",
   outfile: path.join(__dirname, "dist/figma-plugin/code.js"),
+  define,
   sourcemap: false,
 };
 

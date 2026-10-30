@@ -10,6 +10,10 @@ export interface TargetInfo {
   editorType: string;
   /** Registered through the legacy probe below rather than a `hello`. */
   legacy?: boolean;
+  /** package.json version of the plugin build. Absent before 2.2.0. */
+  pluginVersion?: string;
+  /** Fingerprint of the plugin sources, see PluginHello. Absent before 2.2.0. */
+  pluginBuild?: string;
 }
 
 /**
@@ -30,6 +34,14 @@ export interface PluginHello {
   protocol: number;
   docName?: string;
   editorType?: string;
+  /**
+   * Optional, so older plugins keep the same protocol. The version says how old
+   * a plugin is; the build — a hash of the plugin sources — says whether it
+   * actually differs from the one this server ships, so a server release that
+   * leaves the plugin alone doesn't ask anyone to update it.
+   */
+  pluginVersion?: string;
+  pluginBuild?: string;
 }
 
 export interface ControllerHello {

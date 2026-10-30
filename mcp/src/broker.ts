@@ -39,6 +39,8 @@ interface PluginConn {
   docName: string;
   editorType: string;
   legacy?: boolean;
+  pluginVersion?: string;
+  pluginBuild?: string;
 }
 
 interface Route {
@@ -77,6 +79,8 @@ export function startBroker(options: BrokerOptions = {}): Promise<BrokerHandle> 
       docName: p.docName,
       editorType: p.editorType,
       legacy: p.legacy,
+      pluginVersion: p.pluginVersion,
+      pluginBuild: p.pluginBuild,
     }));
   }
 
@@ -181,6 +185,8 @@ export function startBroker(options: BrokerOptions = {}): Promise<BrokerHandle> 
             ws,
             docName: typeof msg.docName === "string" && msg.docName ? msg.docName : "Untitled",
             editorType: typeof msg.editorType === "string" ? msg.editorType : "unknown",
+            pluginVersion: typeof msg.pluginVersion === "string" ? msg.pluginVersion : undefined,
+            pluginBuild: typeof msg.pluginBuild === "string" ? msg.pluginBuild : undefined,
           });
           broadcastTargets();
         } else if (msg.role === "controller") {

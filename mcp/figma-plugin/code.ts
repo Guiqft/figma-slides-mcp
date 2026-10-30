@@ -2,6 +2,11 @@
 // Runs in Figma's plugin sandbox. Receives commands from ui.html via postMessage,
 // executes them against the Figma API, and sends results back.
 
+// Injected by mcp/build.mjs: the package version and a fingerprint of these
+// sources, sent in the hello so the server can tell an outdated plugin apart.
+declare const __PKG_VERSION__: string;
+declare const __PLUGIN_BUILD__: string;
+
 figma.showUI(__html__, { visible: false, width: 0, height: 0 });
 
 // The UI iframe is hidden, and Figma throttles timers in hidden frames — so the
@@ -459,6 +464,8 @@ figma.ui.onmessage = async (msg: UiMessage) => {
       type: "identity",
       docName: figma.root.name,
       editorType: figma.editorType,
+      pluginVersion: __PKG_VERSION__,
+      pluginBuild: __PLUGIN_BUILD__,
     });
     return;
   }

@@ -164,3 +164,40 @@ test("a hello with the wrong protocol is refused before anything else", async (t
   assert.equal(message.code, "protocol_mismatch");
   assert.equal(message.brokerProtocol, PROTOCOL);
 });
+
+test("the plugin version and build from the hello reach the controllers", async (t) => {
+  const broker = await startBroker({ port: 0, pingIntervalMs: 60_000 });
+  t.after(() => broker.close());
+
+  const controller = await helloController(broker.port);
+  const registered = waitForTargets(controller, 2);
+  const current = await helloPlugin(
+    broker.port,
+    "Novo",
+    "slides",
+    {},
+    {
+      pluginVersion: "2.2.0",
+      pluginBuild: "aaaaaaaaaaaa",
+    },
+  );
+  const junk = await helloPlugin(
+    broker.port,
+    "Lixo",
+    "slides",
+    {},
+    { pluginVersion: 7, pluginBuild: {} },
+  );
+  const { targets } = await registered;
+
+  const novo = targets.find((x) => x.docName === "Novo");
+  assert.equal(novo.pluginVersion, "2.2.0");
+  assert.equal(novo.pluginBuild, "aaaaaaaaaaaa");
+  const lixo = targets.find((x) => x.docName === "Lixo");
+  assert.equal(lixo.pluginVersion, undefined, "non-string values are dropped");
+  assert.equal(lixo.pluginBuild, undefined);
+
+  current.close();
+  junk.close();
+  controller.close();
+});
