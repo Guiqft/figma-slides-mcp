@@ -11,6 +11,10 @@ import { BrokerClient } from "./broker-client"
 import { legacyNotice, matchDeck, resolveTarget, shortId } from "./target-resolver"
 import { DEFAULT_BROKER_PORT } from "./protocol"
 
+// Injected by mcp/build.mjs from package.json, so the version the server reports
+// can't drift from the published one.
+declare const __PKG_VERSION__: string
+
 const COMMAND_TIMEOUT_MS = 30_000
 const READY_TIMEOUT_MS = 5_000
 
@@ -76,7 +80,7 @@ function legacyNotices(connId?: string): string[] {
 
 const server = new McpServer({
   name: "figma-slides",
-  version: "2.1.0",
+  version: __PKG_VERSION__,
   description: `Control the currently open Figma Slides presentation. No file URL needed — the plugin auto-connects via WebSocket.
 
 IMPORTANT — slide indexing is 0-based:
