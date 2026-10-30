@@ -44,6 +44,7 @@ npm install            # Install dependencies
 npm run build:mcp      # Build MCP server + Figma plugin
 npm run dev:mcp        # Watch mode for MCP builds
 npm run typecheck      # tsc --noEmit for the server and the plugin (esbuild doesn't type-check)
+npm run format         # Prettier; CI runs format:check
 npm test               # Build, then run the node --test suite (Node 22+)
 ```
 

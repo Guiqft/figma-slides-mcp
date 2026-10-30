@@ -18,6 +18,8 @@
     "build:mcp": "node mcp/build.mjs",
     "dev:mcp": "node mcp/build.mjs --watch",
     "typecheck": "tsc --noEmit -p mcp/tsconfig.json && tsc --noEmit -p mcp/figma-plugin/tsconfig.json",
+    "format": "prettier --write \"mcp/**/*.{ts,mjs,html}\" \".github/**/*.yml\"",
+    "format:check": "prettier --check \"mcp/**/*.{ts,mjs,html}\" \".github/**/*.yml\"",
     "test": "npm run build:mcp && node --test \"mcp/test/*.test.mjs\"",
     "prepublishOnly": "npm run build:mcp"
   },
@@ -39,6 +41,7 @@
     "@modelcontextprotocol/sdk": "^1.32.2",
     "@types/ws": "^8.5.13",
     "esbuild": "^0.28.2",
+    "prettier": "^3.9.10",
     "typescript": "^5.7.0",
     "ws": "^8.18.0",
     "zod": "^4.6.7"
