@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const watch = process.argv.includes("--watch");
+const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "../package.json"), "utf8"));
 
 // Every Node-side module is bundled on its own so the broker can be spawned
 // standalone and the tests can import the pure modules without booting a server.
@@ -18,6 +19,7 @@ function nodeBuild(entry, outfile) {
     format: "esm",
     outfile: path.join(__dirname, outfile),
     external: builtinModules.flatMap((m) => [m, `node:${m}`]),
+    define: { __PKG_VERSION__: JSON.stringify(pkg.version) },
     banner: {
       js: [
         "#!/usr/bin/env node",
