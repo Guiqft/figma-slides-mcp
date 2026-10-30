@@ -110,7 +110,13 @@ test("an unknown target comes back as no_such_target with the original id", asyn
 
   const controller = await helloController(broker.port);
   const err = nextMessage(controller, (m) => m.type === "error");
-  send(controller, { type: "command", id: "req_y1", target: "nope", command: "execute", params: {} });
+  send(controller, {
+    type: "command",
+    id: "req_y1",
+    target: "nope",
+    command: "execute",
+    params: {},
+  });
   const message = await err;
 
   assert.equal(message.code, "no_such_target");

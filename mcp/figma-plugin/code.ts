@@ -86,17 +86,38 @@ async function handleCommand(cmd: string, params: Record<string, unknown>): Prom
     switch (cmd) {
       case "ping": {
         const slides = findSlides();
-        return { success: true, data: { pong: true, slideCount: slides.length, timestamp: Date.now() } };
+        return {
+          success: true,
+          data: { pong: true, slideCount: slides.length, timestamp: Date.now() },
+        };
       }
 
       case "get_styleguide": {
         const slides = findSlides();
         const colors = new Map<string, { count: number; contexts: string[] }>();
         const fonts = new Map<string, { count: number; contexts: string[] }>();
-        const layouts: { slideIndex: number; name: string; textPreview: string; regions: { name: string; type: string; x: number; y: number; width: number; height: number }[] }[] = [];
+        const layouts: {
+          slideIndex: number;
+          name: string;
+          textPreview: string;
+          regions: {
+            name: string;
+            type: string;
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+          }[];
+        }[] = [];
 
         const colorKey = (r: number, g: number, b: number) =>
-          `#${[r, g, b].map((c) => Math.round(c * 255).toString(16).padStart(2, "0")).join("")}`;
+          `#${[r, g, b]
+            .map((c) =>
+              Math.round(c * 255)
+                .toString(16)
+                .padStart(2, "0"),
+            )
+            .join("")}`;
 
         const walkNode = (node: SceneNode, slideIndex: number, slideName: string) => {
           // Collect colors from fills
@@ -110,7 +131,10 @@ async function handleCommand(cmd: string, params: Record<string, unknown>): Prom
                     const entry = colors.get(key) || { count: 0, contexts: [] };
                     entry.count++;
                     if (entry.contexts.length < 3) {
-                      const ctx = node.type === "TEXT" ? `text "${(node as TextNode).characters.slice(0, 30)}"` : `${node.type.toLowerCase()} "${node.name}"`;
+                      const ctx =
+                        node.type === "TEXT"
+                          ? `text "${(node as TextNode).characters.slice(0, 30)}"`
+                          : `${node.type.toLowerCase()} "${node.name}"`;
                       entry.contexts.push(`slide ${slideIndex}: ${ctx}`);
                     }
                     colors.set(key, entry);
@@ -140,7 +164,8 @@ async function handleCommand(cmd: string, params: Record<string, unknown>): Prom
           }
 
           if ("children" in node) {
-            for (const child of (node as ChildrenMixin).children) walkNode(child as SceneNode, slideIndex, slideName);
+            for (const child of (node as ChildrenMixin).children)
+              walkNode(child as SceneNode, slideIndex, slideName);
           }
         };
 
@@ -167,11 +192,17 @@ async function handleCommand(cmd: string, params: Record<string, unknown>): Prom
                 const t = (n as TextNode).characters.trim();
                 if (t) texts.push(t.length > 60 ? t.slice(0, 60) + "…" : t);
               }
-              if ("children" in n) for (const c of (n as ChildrenMixin).children) walkText(c as SceneNode);
+              if ("children" in n)
+                for (const c of (n as ChildrenMixin).children) walkText(c as SceneNode);
             };
             for (const c of (slide as ChildrenMixin).children) walkText(c as SceneNode);
 
-            layouts.push({ slideIndex: i, name: slide.name, textPreview: texts.join(" | "), regions });
+            layouts.push({
+              slideIndex: i,
+              name: slide.name,
+              textPreview: texts.join(" | "),
+              regions,
+            });
           }
         }
 
@@ -199,7 +230,14 @@ async function handleCommand(cmd: string, params: Record<string, unknown>): Prom
       case "execute": {
         const code = params.code as string;
         if (!code) return { success: false, error: "No code provided" };
-        const fn = new AsyncFunction("figma", "getSlide", "findSlides", "serialize", "loadFont", code);
+        const fn = new AsyncFunction(
+          "figma",
+          "getSlide",
+          "findSlides",
+          "serialize",
+          "loadFont",
+          code,
+        );
         const result = await fn(figma, getSlide, findSlides, serializeNode, loadFont);
         return { success: true, data: result };
       }
@@ -228,7 +266,8 @@ async function handleCommand(cmd: string, params: Record<string, unknown>): Prom
                 if (chars) texts.push(chars.length > 80 ? chars.slice(0, 80) + "…" : chars);
               }
               if ("children" in node) {
-                for (const child of (node as ChildrenMixin).children) walkForText(child as SceneNode);
+                for (const child of (node as ChildrenMixin).children)
+                  walkForText(child as SceneNode);
               }
             };
             for (const child of children) walkForText(child as SceneNode);
@@ -248,8 +287,8 @@ async function handleCommand(cmd: string, params: Record<string, unknown>): Prom
         const serializeDeep = (node: SceneNode, depth: number): Record<string, unknown> => {
           const info = serializeNode(node);
           if ("children" in node && depth < maxDepth) {
-            info.children = (node as ChildrenMixin).children.map(
-              (child) => serializeDeep(child as SceneNode, depth + 1)
+            info.children = (node as ChildrenMixin).children.map((child) =>
+              serializeDeep(child as SceneNode, depth + 1),
             );
           }
           return info;
@@ -297,11 +336,13 @@ async function handleCommand(cmd: string, params: Record<string, unknown>): Prom
         const textNodes: TextNode[] = [];
         const walkForText = (node: SceneNode) => {
           if (node.type === "TEXT") textNodes.push(node as TextNode);
-          if ("children" in node) for (const c of (node as ChildrenMixin).children) walkForText(c as SceneNode);
+          if ("children" in node)
+            for (const c of (node as ChildrenMixin).children) walkForText(c as SceneNode);
         };
         walkForText(slide);
 
-        const results: { match: string; found: boolean; nodeName?: string; oldText?: string }[] = [];
+        const results: { match: string; found: boolean; nodeName?: string; oldText?: string }[] =
+          [];
 
         for (const { match, newText } of updates) {
           // Find by node name first, then by text content (startsWith for partial match)
@@ -321,7 +362,9 @@ async function handleCommand(cmd: string, params: Record<string, unknown>): Prom
             try {
               const font = target.getRangeFontName(i, i + 1) as FontName;
               fontsToLoad.add(`${font.family}::${font.style}`);
-            } catch (_) { break; }
+            } catch (_) {
+              break;
+            }
           }
           for (const key of fontsToLoad) {
             const [family, style] = key.split("::");
@@ -371,14 +414,18 @@ async function handleCommand(cmd: string, params: Record<string, unknown>): Prom
 
       case "screenshot_slide": {
         const slide = getSlide(params.slideIndex as number);
-        if (!slide) return { success: false, error: `Slide at index ${params.slideIndex} not found` };
+        if (!slide)
+          return { success: false, error: `Slide at index ${params.slideIndex} not found` };
         let exportable: SceneNode = slide;
         if (!("exportAsync" in exportable) && "children" in exportable) {
           const child = (exportable as ChildrenMixin).children.find((c) => "exportAsync" in c);
           if (child) exportable = child as SceneNode;
         }
         if (!("exportAsync" in exportable)) {
-          return { success: false, error: `Slide node type "${slide.type}" does not support export` };
+          return {
+            success: false,
+            error: `Slide node type "${slide.type}" does not support export`,
+          };
         }
         const settings: ExportSettings = {
           format: "PNG",

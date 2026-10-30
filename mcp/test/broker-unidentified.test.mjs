@@ -46,7 +46,7 @@ test("a plugin that says hello in time is never counted as unidentified", async 
 
   const registered = await nextMessage(
     controller,
-    (m) => m.type === "targets" && m.targets.length === 1
+    (m) => m.type === "targets" && m.targets.length === 1,
   );
   assert.equal(registered.unidentified, 0);
 

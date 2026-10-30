@@ -9,7 +9,7 @@ const brokerPath = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
   "dist",
-  "broker.mjs"
+  "broker.mjs",
 );
 
 function spawnBroker(port) {

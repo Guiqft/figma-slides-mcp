@@ -59,9 +59,17 @@ test("the built server boots over stdio and registers every tool", async (t) => 
 // this repo (CLAUDE.md) and for agents using the server (the skill). The test
 // above pins TOOLS to what the server registers; this one keeps the docs in step.
 test("every registered tool is documented", () => {
-  for (const doc of ["../../README.md", "../../CLAUDE.md", "../../.claude/skills/figma-slides-api/SKILL.md"]) {
+  for (const doc of [
+    "../../README.md",
+    "../../CLAUDE.md",
+    "../../.claude/skills/figma-slides-api/SKILL.md",
+  ]) {
     const text = read(doc);
     const missing = TOOLS.filter((tool) => !text.includes(`\`${tool}`));
-    assert.deepEqual(missing, [], `${doc.replace("../../", "")} does not mention ${missing.join(", ")}`);
+    assert.deepEqual(
+      missing,
+      [],
+      `${doc.replace("../../", "")} does not mention ${missing.join(", ")}`,
+    );
   }
 });

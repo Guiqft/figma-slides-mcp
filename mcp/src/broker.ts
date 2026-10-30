@@ -153,7 +153,7 @@ export function startBroker(options: BrokerOptions = {}): Promise<BrokerHandle> 
         registerLegacyPlugin(
           msg.success === true && typeof msg.data === "string" && msg.data
             ? msg.data
-            : LEGACY_DOC_NAME
+            : LEGACY_DOC_NAME,
         );
         return;
       }
@@ -241,7 +241,7 @@ export function startBroker(options: BrokerOptions = {}): Promise<BrokerHandle> 
         plugins.delete(identity.connId);
         failRoutesTo(
           identity.connId,
-          "The Figma plugin for this deck disconnected before answering."
+          "The Figma plugin for this deck disconnected before answering.",
         );
         broadcastTargets();
       } else {
@@ -300,7 +300,9 @@ export function startBroker(options: BrokerOptions = {}): Promise<BrokerHandle> 
 // startBroker() from the same file and must not get a listening socket.
 if (path.basename(process.argv[1] ?? "") === "broker.mjs") {
   const envPort = Number(process.env.FIGMA_SLIDES_BROKER_PORT);
-  startBroker({ port: Number.isFinite(envPort) && envPort > 0 ? envPort : DEFAULT_BROKER_PORT }).then(
+  startBroker({
+    port: Number.isFinite(envPort) && envPort > 0 ? envPort : DEFAULT_BROKER_PORT,
+  }).then(
     (handle) => {
       console.error(`[figma-slides-broker] listening on ws://localhost:${handle.port}`);
     },
@@ -310,6 +312,6 @@ if (path.basename(process.argv[1] ?? "") === "broker.mjs") {
       if (err.code === "EADDRINUSE") process.exit(0);
       console.error(`[figma-slides-broker] Fatal: ${err.message}`);
       process.exit(1);
-    }
+    },
   );
 }
