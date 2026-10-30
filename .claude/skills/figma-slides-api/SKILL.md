@@ -75,6 +75,24 @@ duplicate_slide(sourceIndex: 0)  → { newIndex: 1 }
 update_text(slideIndex: 1, updates: [{ match: "Old Title", newText: "New Title" }])
 ```
 
+## Checking Your Work
+
+Look at the result after visual changes instead of trusting the code:
+
+- `screenshot_slide(slideIndex, scale?)` — PNG of one slide (default scale 1)
+- `screenshot_presentation(scale?)` — PNG thumbnails of every slide in one call (default scale 0.5)
+
+## Multiple Decks
+
+Every tool takes an optional `deck`. With one deck connected, omit it. With two
+or more and nothing pinned, the tools refuse to guess and list the candidates:
+
+- `list_decks` — connected decks (`connId`, `docName`, `editorType`, `isPinned`, `legacy`)
+- `use_deck(deck)` — pin one deck for the rest of the session; prefer part of the
+  file name over a `connId`, which changes whenever the plugin is relaunched
+- `ping` — check the plugin is connected and responding; run it first when a
+  tool reports no deck connected, and it also flags a deck on an outdated plugin
+
 ## REST API vs Plugin API
 
 - **REST API** (`https://api.figma.com/v1/...`): Team/project/file listing, thumbnails. Uses `X-Figma-Token` header with PAT.
