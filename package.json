@@ -6,6 +6,9 @@
   "bin": {
     "figma-slides-mcp": "mcp/dist/mcp-server.mjs"
   },
+  "engines": {
+    "node": ">=20"
+  },
   "files": [
     "mcp/dist/",
     "README.md",
@@ -14,6 +17,7 @@
   "scripts": {
     "build:mcp": "node mcp/build.mjs",
     "dev:mcp": "node mcp/build.mjs --watch",
+    "typecheck": "tsc --noEmit -p mcp/tsconfig.json && tsc --noEmit -p mcp/figma-plugin/tsconfig.json",
     "test": "npm run build:mcp && node --test \"mcp/test/*.test.mjs\"",
     "prepublishOnly": "npm run build:mcp"
   },
@@ -32,11 +36,11 @@
   "homepage": "https://github.com/Guiqft/figma-slides-mcp",
   "devDependencies": {
     "@figma/plugin-typings": "^1.106.0",
-    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@types/ws": "^8.5.13",
-    "esbuild": "^0.24.2",
+    "esbuild": "^0.28.2",
     "typescript": "^5.7.0",
     "ws": "^8.18.0",
-    "zod": "^3.23.0"
+    "zod": "^4.6.7"
   }
 }
