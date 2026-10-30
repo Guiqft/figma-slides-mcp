@@ -100,11 +100,14 @@ Any MCP-compatible client can use figma-slides-mcp:
 
 ### 2. Load the Figma plugin
 
-1. Download the [latest plugin release](https://github.com/guiqft/figma-slides-mcp/releases/latest/download/figma-plugin.zip) and unzip it
-2. In Figma, open a Slides file
+> **Note:** importing a local plugin requires the **Figma desktop app** — the
+> browser Plugins menu only lists published plugins.
+
+1. Download the [latest plugin release](https://github.com/Guiqft/figma-slides-mcp/releases/latest/download/figma-plugin.zip) and unzip it
+2. In the Figma desktop app, open a Slides file
 3. Go to **Plugins > Development > Import plugin from manifest...**
 4. Select the `manifest.json` from the unzipped folder
-5. Run the plugin — it connects to the MCP server via WebSocket on port 3055
+5. Run the plugin (**Claude Code Slides**) — it connects to the MCP server via WebSocket on port 3055
 
 ### Updating
 
