@@ -1,0 +1,20 @@
+version: 2
+updates:
+  # The SDK, ws and zod are devDependencies but esbuild bundles them into the
+  # published server, so their advisories ship to users even though
+  # `npm audit --omit=dev` reports nothing.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

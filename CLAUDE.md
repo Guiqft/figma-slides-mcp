@@ -44,8 +44,13 @@ the wrong deck is silent damage.
 npm install            # Install dependencies
 npm run build:mcp      # Build MCP server + Figma plugin
 npm run dev:mcp        # Watch mode for MCP builds
+npm run typecheck      # tsc --noEmit for the server and the plugin (esbuild doesn't type-check)
 npm test               # Build, then run the node --test suite (Node 22+)
 ```
+
+The server version comes from `package.json` (injected by `mcp/build.mjs`), so a
+release only bumps `package.json`. `ui.html` keeps its own `PROTOCOL` constant;
+`mcp/test/plugin-protocol.test.mjs` fails if it drifts from `mcp/src/protocol.ts`.
 
 The checked-in `.mcp.json` registers the server as `figma-slides-dev`, running
 the local build directly, so run `npm run build:mcp` before starting an MCP
